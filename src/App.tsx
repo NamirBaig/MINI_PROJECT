@@ -17,6 +17,23 @@ import YelahankaHub from './pages/YelahankaHub'
 import Auth from './pages/Auth'
 import FloatingReliefWidget from './components/FloatingReliefWidget'
 
+// One-time automatic clean-slate purge: resets legacy dummy records to empty
+if (typeof window !== 'undefined') {
+  try {
+    const PURGE_KEY = 'safeground_clean_slate_v4'
+    if (!localStorage.getItem(PURGE_KEY)) {
+      localStorage.removeItem('safeground_requests_db')
+      localStorage.removeItem('safeground_known_requester_emails')
+      localStorage.removeItem('safeground_damage_reports')
+      localStorage.removeItem('safeground_official_advisories')
+      localStorage.removeItem('safeground_donations_db')
+      localStorage.setItem(PURGE_KEY, 'true')
+    }
+  } catch (e) {
+    console.error('Storage purge check failed:', e)
+  }
+}
+
 const pageVariants = {
   initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.32, ease: 'easeOut' } },

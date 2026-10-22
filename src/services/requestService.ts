@@ -63,178 +63,8 @@ const REQUESTS_STORAGE_KEY = 'safeground_requests_db'
 const USERS_STORAGE_KEY = 'safeground_users_db'
 const KNOWN_EMAILS_KEY = 'safeground_known_requester_emails'
 
-// Initial seed requests calibrated for Bengaluru flood zones
-const SEED_REQUESTS: EmergencyRequest[] = [
-  {
-    id: 'REQ-2024-BLR-0418',
-    userId: 'seed-user-1',
-    requesterName: 'Smt. Gayatri Deshmukh',
-    requesterEmail: 'gayatri.d@gmail.com',
-    requesterPhone: '+91 98450 12891',
-    zone: 'Yelahanka',
-    address: 'Flat 402, Block C, Kendriya Vihar, Bellahalli Cross, Yelahanka',
-    resourceType: 'Hospital ICU Beds',
-    quantity: 1,
-    urgency: 'CRITICAL',
-    patientNotes: 'Elderly 78yo asthma patient with declining SpO2 (84%). Ground floor flooded with 3.5ft water; building power cut.',
-    status: 'PENDING',
-    allocatedHospital: null,
-    hospitalBedNumber: null,
-    dispatchVehicle: null,
-    driverName: null,
-    driverPhone: null,
-    dispatchEta: null,
-    redirectShelter: null,
-    reviewedBy: null,
-    reviewedAt: null,
-    actionNotes: null,
-    emailNotificationSent: false,
-    emailNotificationTimestamp: null,
-    auditTrail: [
-      {
-        timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-        action: 'Request Registered',
-        actor: 'Smt. Gayatri Deshmukh (Resident)',
-        details: 'Critical emergency distress request broadcast for 1x Hospital ICU Bed at Kendriya Vihar.',
-        badgeColor: '#EF4444',
-      },
-    ],
-    createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'REQ-2024-BLR-0415',
-    userId: 'seed-user-2',
-    requesterName: 'Anand Venkatesh',
-    requesterEmail: 'anand.v@outlook.com',
-    requesterPhone: '+91 94481 44520',
-    zone: 'Mahadevapura',
-    address: 'Villa 42, Rainbow Drive Layout, Sarjapur Road, Mahadevapura',
-    resourceType: 'Hospital General Beds',
-    quantity: 2,
-    urgency: 'HIGH',
-    patientNotes: 'Mother injured foot in waterlogged basement; mild hypothermia. Requires wound debridement & ward admission.',
-    status: 'APPROVED',
-    allocatedHospital: 'Sakra World Hospital (Bellandur Ward 3)',
-    hospitalBedNumber: 'General Ward Bed #14-B (Block C)',
-    dispatchVehicle: '108 ALS Ambulance KA-04-E-1882',
-    driverName: 'Manjunath R. (Ambulance Lead Pilot)',
-    driverPhone: '+91 98451 91108',
-    dispatchEta: '14 mins (Arriving Soon)',
-    redirectShelter: null,
-    reviewedBy: 'Er. Ramesh Gowda (BBMP Relief Lead)',
-    reviewedAt: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
-    actionNotes: 'Approved: 2 General Beds reserved at Sakra World Hospital. 108 Ambulance KA-04-E-1882 dispatched via Outer Ring Road.',
-    emailNotificationSent: true,
-    emailNotificationTimestamp: new Date(Date.now() - 89 * 60 * 1000).toISOString(),
-    auditTrail: [
-      {
-        timestamp: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
-        action: 'Request Registered',
-        actor: 'Anand Venkatesh',
-        details: 'Submitted request for 2x Hospital General Beds.',
-        badgeColor: '#F59E0B',
-      },
-      {
-        timestamp: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
-        action: 'Accepted & Beds Reserved',
-        actor: 'Er. Ramesh Gowda (BBMP Relief Lead)',
-        details: 'Allocated at Sakra World Hospital. Bed #14-B reserved. 108 Ambulance KA-04-E-1882 dispatched.',
-        badgeColor: '#10B981',
-      },
-    ],
-    createdAt: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'REQ-2024-BLR-0409',
-    userId: 'seed-user-3',
-    requesterName: 'Karthik Somayaji',
-    requesterEmail: 'karthik.s@gmail.com',
-    requesterPhone: '+91 97311 90234',
-    zone: 'Bommanahalli',
-    address: 'House #18, 4th Cross, HSR Layout Sector 6, near Silk Board',
-    resourceType: 'Emergency Drinking Water Tanker',
-    quantity: 2,
-    urgency: 'HIGH',
-    patientNotes: 'Sump contaminated by storm drain backflow. 34 residents in apartment complex without drinking water since 6 AM.',
-    status: 'DISPATCHED',
-    allocatedHospital: 'BWSSB South Depot #4',
-    hospitalBedNumber: 'Depot Docket #BWSSB-8821',
-    dispatchVehicle: 'BWSSB Potable Water Tanker KA-01-F-3902 (6000L)',
-    driverName: 'Someshwaraiah N. (BWSSB Pilot)',
-    driverPhone: '+91 94481 22890',
-    dispatchEta: '8 mins (Approaching Sector 6)',
-    redirectShelter: null,
-    reviewedBy: 'Dr. K. S. Murthy (KSNDMC Officer)',
-    reviewedAt: new Date(Date.now() - 150 * 60 * 1000).toISOString(),
-    actionNotes: 'Approved: 6,000L BWSSB drinking water tanker dispatched with chlorination tablets.',
-    emailNotificationSent: true,
-    emailNotificationTimestamp: new Date(Date.now() - 149 * 60 * 1000).toISOString(),
-    auditTrail: [
-      {
-        timestamp: new Date(Date.now() - 180 * 60 * 1000).toISOString(),
-        action: 'Request Registered',
-        actor: 'Karthik Somayaji',
-        details: 'Submitted request for 2x Drinking Water Tankers.',
-        badgeColor: '#06B6D4',
-      },
-      {
-        timestamp: new Date(Date.now() - 150 * 60 * 1000).toISOString(),
-        action: 'Approved & Dispatched',
-        actor: 'Dr. K. S. Murthy (KSNDMC Officer)',
-        details: 'Tanker KA-01-F-3902 en route to HSR Layout Sector 6.',
-        badgeColor: '#06B6D4',
-      },
-    ],
-    createdAt: new Date(Date.now() - 180 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 150 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'REQ-2024-BLR-0398',
-    userId: 'seed-user-4',
-    requesterName: 'Praveen Narayanan',
-    requesterEmail: 'praveen.n@yahoo.in',
-    requesterPhone: '+91 80252 66710',
-    zone: 'East',
-    address: 'No 7, Cambridge Road, Ulsoor, Bengaluru East',
-    resourceType: 'Hospital General Beds',
-    quantity: 4,
-    urgency: 'MODERATE',
-    patientNotes: 'Requested 4 preventive beds for non-emergency family members.',
-    status: 'DENIED',
-    allocatedHospital: null,
-    hospitalBedNumber: null,
-    dispatchVehicle: null,
-    driverName: null,
-    driverPhone: null,
-    dispatchEta: null,
-    redirectShelter: 'Ulsoor BBMP Community Relief Center (Near Ulsoor Lake Gate 2, Ph: 080-25510101)',
-    reviewedBy: 'Er. Ramesh Gowda (BBMP Relief Lead)',
-    reviewedAt: new Date(Date.now() - 240 * 60 * 1000).toISOString(),
-    actionNotes: 'Denied: Inpatient beds prioritized for acute medical emergencies. Family directed to Ulsoor BBMP Community Relief Shelter with 80 dry beds and hot meals.',
-    emailNotificationSent: true,
-    emailNotificationTimestamp: new Date(Date.now() - 239 * 60 * 1000).toISOString(),
-    auditTrail: [
-      {
-        timestamp: new Date(Date.now() - 300 * 60 * 1000).toISOString(),
-        action: 'Request Registered',
-        actor: 'Praveen Narayanan',
-        details: 'Submitted request for 4x Hospital General Beds.',
-        badgeColor: '#F59E0B',
-      },
-      {
-        timestamp: new Date(Date.now() - 240 * 60 * 1000).toISOString(),
-        action: 'Rejected & Redirected',
-        actor: 'Er. Ramesh Gowda (BBMP Relief Lead)',
-        details: 'Prioritized for trauma patients. Redirected to Ulsoor Community Relief Center.',
-        badgeColor: '#EF4444',
-      },
-    ],
-    createdAt: new Date(Date.now() - 300 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 240 * 60 * 1000).toISOString(),
-  },
-]
+// Initial seed requests (Empty and ready to be filled by live citizen requests)
+const SEED_REQUESTS: EmergencyRequest[] = []
 
 // Listeners for live real-time sync across components
 type RequestChangeListener = () => void
@@ -293,20 +123,30 @@ export function getAllKnownRequesterEmails(): string[] {
 }
 
 /**
- * Load all emergency requests from storage
+ * Load all emergency requests from storage (Empty array if none created)
  */
 export function getAllRequests(): EmergencyRequest[] {
-  if (typeof window === 'undefined') return SEED_REQUESTS
+  if (typeof window === 'undefined') return []
   try {
     const raw = localStorage.getItem(REQUESTS_STORAGE_KEY)
     if (!raw) {
-      localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(SEED_REQUESTS))
-      return SEED_REQUESTS
+      return []
     }
     return JSON.parse(raw)
   } catch (e) {
-    return SEED_REQUESTS
+    return []
   }
+}
+
+/**
+ * Clear all emergency requests and reset to empty
+ */
+export function clearAllEmergencyRequests() {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(REQUESTS_STORAGE_KEY)
+    localStorage.removeItem(KNOWN_EMAILS_KEY)
+  }
+  notifyListeners()
 }
 
 /**

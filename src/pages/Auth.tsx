@@ -220,7 +220,7 @@ export default function Auth() {
               alignItems: 'center',
               gap: 8,
             }}>
-              <Sparkles size={14} /> Quick 1-Click Evaluator Roles:
+              <Sparkles size={14} /> Official Bengaluru Operations Access:
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

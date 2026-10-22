@@ -16,6 +16,7 @@ import {
   denyEmergencyRequest,
   markAsDispatched,
   subscribeToRequests,
+  clearAllEmergencyRequests,
   type EmergencyRequest,
 } from '../services/requestService'
 import {
@@ -30,6 +31,7 @@ import {
   subscribeToDamageReports,
   subscribeToAdvisories,
   subscribeToDonations,
+  clearAllIncidentAndReliefData,
   type CitizenDamageReport,
   type CrowdsourcedRedZone,
   type AuthorityAdvisory,
@@ -361,26 +363,53 @@ export default function AuthorityRequestTriage() {
           </p>
         </div>
 
-        {/* Quick Action: Publish Advisory */}
-        <button
-          onClick={() => handleOpenAdvisoryModal()}
-          style={{
-            padding: '10px 18px',
-            borderRadius: 12,
-            background: 'linear-gradient(135deg, #EF4444 0%, #B91C1C 100%)',
-            border: 'none',
-            color: '#FFFFFF',
-            fontSize: 13,
-            fontWeight: 800,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)',
-          }}
-        >
-          <Radio size={16} /> Broadcast Official Advisory
-        </button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => {
+              playClickSound()
+              clearAllEmergencyRequests()
+              clearAllIncidentAndReliefData()
+              toast.success('All Records Reset', 'All relief fund, dispatch details, and reports cleared to null & empty.')
+              refreshAll()
+            }}
+            style={{
+              padding: '10px 16px',
+              borderRadius: 12,
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              color: '#FCA5A5',
+              fontSize: 12.5,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            🧹 Clear All Records (Reset to Empty)
+          </button>
+
+          {/* Quick Action: Publish Advisory */}
+          <button
+            onClick={() => handleOpenAdvisoryModal()}
+            style={{
+              padding: '10px 18px',
+              borderRadius: 12,
+              background: 'linear-gradient(135deg, #EF4444 0%, #B91C1C 100%)',
+              border: 'none',
+              color: '#FFFFFF',
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)',
+            }}
+          >
+            <Radio size={16} /> Broadcast Official Advisory
+          </button>
+        </div>
       </div>
 
       {/* ─── 5-TAB COMMAND NAVIGATION ─── */}
@@ -808,7 +837,14 @@ export default function AuthorityRequestTriage() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {filteredDamageReports.map(rep => {
+            {filteredDamageReports.length === 0 ? (
+              <div style={{ padding: '36px', textAlign: 'center', color: 'var(--tx-muted)', background: 'rgba(255,255,255,0.02)', borderRadius: 12 }}>
+                <Droplets size={32} color="rgba(56, 189, 248, 0.4)" style={{ margin: '0 auto 10px' }} />
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>No Citizen Waterlogging Reports</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>Telemetry records are empty and ready to receive fresh citizen flood depth & damage submissions.</div>
+              </div>
+            ) : (
+              filteredDamageReports.map(rep => {
               const isCrit = rep.waterDepthFeet >= 3.5
               const isHigh = rep.waterDepthFeet >= 2.0 && rep.waterDepthFeet < 3.5
 
@@ -910,8 +946,9 @@ export default function AuthorityRequestTriage() {
                   </div>
                 </div>
               )
-            })}
-          </div>
+            })
+          )}
+        </div>
         </motion.div>
       )}
 
@@ -930,8 +967,27 @@ export default function AuthorityRequestTriage() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {redZones.map(cluster => {
-              const safe = cluster.saferAlternativeRoute
+            {redZones.length === 0 ? (
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px dashed rgba(255, 255, 255, 0.12)',
+                  borderRadius: 16,
+                  padding: '40px 24px',
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ fontSize: 36, marginBottom: 10 }}>🛡️</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#FFFFFF', marginBottom: 6 }}>
+                  No Active Crowdsourced Red Zones
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--tx-muted)', maxWidth: 460, margin: '0 auto' }}>
+                  All zones are currently clear. When multiple residents report waterlogging or flooding in an area, SafeGround automatically marks it as a Red Zone and computes safer bypass routes.
+                </div>
+              </div>
+            ) : (
+              redZones.map(cluster => {
+                const safe = cluster.saferAlternativeRoute
 
               return (
                 <div
@@ -1033,7 +1089,8 @@ export default function AuthorityRequestTriage() {
                   </div>
                 </div>
               )
-            })}
+            })
+          )}
           </div>
         </motion.div>
       )}
@@ -1233,33 +1290,47 @@ export default function AuthorityRequestTriage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredDonors.map(donor => (
-                  <tr key={donor.donorEmail} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                    <td style={{ padding: '12px 14px' }}>
-                      <div style={{ fontWeight: 800, color: '#FFFFFF' }}>{donor.donorName}</div>
-                      <div style={{ fontSize: 11, color: '#F472B6' }}>{donor.donorEmail}</div>
-                    </td>
-                    <td style={{ padding: '12px 14px' }}>
-                      <span style={{ fontSize: 15, fontWeight: 900, color: '#34D399' }}>
-                        ₹{donor.totalAmount.toLocaleString('en-IN')}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 14px', color: '#E5E7EB' }}>
-                      {donor.donationCount} {donor.donationCount === 1 ? 'gift' : 'gifts'}
-                    </td>
-                    <td style={{ padding: '12px 14px', color: 'var(--tx-muted)', fontSize: 11.5 }}>
-                      {new Date(donor.lastDonationDate).toLocaleString('en-IN', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                    <td style={{ padding: '12px 14px', color: 'rgba(255,255,255,0.85)', fontSize: 11.5 }}>
-                      {donor.causes.join(', ')}
+                {filteredDonors.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ padding: '40px 14px', textAlign: 'center', color: 'var(--tx-muted)' }}>
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>💝</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', marginBottom: 4 }}>
+                        No Relief Donations Recorded Yet
+                      </div>
+                      <div style={{ fontSize: 12 }}>
+                        The disaster relief fund is currently at ₹0. Donations submitted by citizens will appear here in real time with individual donor totals and cause allocations.
+                      </div>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredDonors.map(donor => (
+                    <tr key={donor.donorEmail} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                      <td style={{ padding: '12px 14px' }}>
+                        <div style={{ fontWeight: 800, color: '#FFFFFF' }}>{donor.donorName}</div>
+                        <div style={{ fontSize: 11, color: '#F472B6' }}>{donor.donorEmail}</div>
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <span style={{ fontSize: 15, fontWeight: 900, color: '#34D399' }}>
+                          ₹{donor.totalAmount.toLocaleString('en-IN')}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 14px', color: '#E5E7EB' }}>
+                        {donor.donationCount} {donor.donationCount === 1 ? 'gift' : 'gifts'}
+                      </td>
+                      <td style={{ padding: '12px 14px', color: 'var(--tx-muted)', fontSize: 11.5 }}>
+                        {new Date(donor.lastDonationDate).toLocaleString('en-IN', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                      <td style={{ padding: '12px 14px', color: 'rgba(255,255,255,0.85)', fontSize: 11.5 }}>
+                        {donor.causes.join(', ')}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

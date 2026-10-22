@@ -96,180 +96,11 @@ const DAMAGE_REPORTS_KEY = 'safeground_damage_reports'
 const ADVISORIES_KEY = 'safeground_official_advisories'
 const DONATIONS_KEY = 'safeground_donations_db'
 
-// Initial Seed Damage Reports (Realistic flood clustering in Bengaluru)
-const SEED_DAMAGE_REPORTS: CitizenDamageReport[] = [
-  {
-    id: 'REP-BLR-091',
-    userId: 'cit-101',
-    reporterName: 'Suresh Nambiar',
-    reporterEmail: 'suresh.n@gmail.com',
-    reporterPhone: '+91 98451 22301',
-    zone: 'Mahadevapura',
-    landmark: 'Outer Ring Road (EcoSpace Underpass & Service Road)',
-    waterDepthFeet: 3.5,
-    damageType: 'Road Submersion',
-    damageDescription: 'Underpass flooded up to 3.5ft. 4 sedans trapped and submerged up to engine bay. Road impassable.',
-    severity: 'CRITICAL',
-    status: 'ADVISORY_ISSUED',
-    reportedAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
-    verifiedBy: 'Er. Ramesh Gowda (BBMP Relief Lead)',
-    publishedAdvisoryId: 'ADV-BLR-01',
-  },
-  {
-    id: 'REP-BLR-092',
-    userId: 'cit-102',
-    reporterName: 'Divya Krishnan',
-    reporterEmail: 'divya.k@gmail.com',
-    reporterPhone: '+91 97410 44812',
-    zone: 'Mahadevapura',
-    landmark: 'Outer Ring Road (EcoSpace Underpass & Service Road)',
-    waterDepthFeet: 3.2,
-    damageType: 'Submerged Vehicles',
-    damageDescription: 'Water flowing rapidly across Bellandur lake culvert onto ORR. BMTC bus stalled.',
-    severity: 'CRITICAL',
-    status: 'ADVISORY_ISSUED',
-    reportedAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    verifiedBy: 'Er. Ramesh Gowda (BBMP Relief Lead)',
-    publishedAdvisoryId: 'ADV-BLR-01',
-  },
-  {
-    id: 'REP-BLR-093',
-    userId: 'cit-103',
-    reporterName: 'Ravi Teja',
-    reporterEmail: 'ravi.t@outlook.com',
-    reporterPhone: '+91 94480 99120',
-    zone: 'Mahadevapura',
-    landmark: 'Outer Ring Road (EcoSpace Underpass & Service Road)',
-    waterDepthFeet: 3.0,
-    damageType: 'Road Submersion',
-    damageDescription: 'Service lane submerged. Traffic police turning vehicles back. Need immediate pump deployment.',
-    severity: 'CRITICAL',
-    status: 'ADVISORY_ISSUED',
-    reportedAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    verifiedBy: 'Er. Ramesh Gowda (BBMP Relief Lead)',
-    publishedAdvisoryId: 'ADV-BLR-01',
-  },
-  {
-    id: 'REP-BLR-084',
-    userId: 'cit-104',
-    reporterName: 'Gayatri Deshmukh',
-    reporterEmail: 'gayatri.d@gmail.com',
-    reporterPhone: '+91 98450 12891',
-    zone: 'Yelahanka',
-    landmark: 'Kendriya Vihar & Kogilu Cross Road',
-    waterDepthFeet: 4.0,
-    damageType: 'Basement Inundation',
-    damageDescription: 'Ground floor and basement completely submerged in 4ft runoff from Amanikere overflow. Power transformers shut off.',
-    severity: 'CRITICAL',
-    status: 'PENDING_REVIEW',
-    reportedAt: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
-    verifiedBy: null,
-  },
-  {
-    id: 'REP-BLR-085',
-    userId: 'cit-105',
-    reporterName: 'Manish Hegde',
-    reporterEmail: 'manish.h@gmail.com',
-    reporterPhone: '+91 99001 55621',
-    zone: 'Yelahanka',
-    landmark: 'Kendriya Vihar & Kogilu Cross Road',
-    waterDepthFeet: 3.8,
-    damageType: 'Drinking Water Contamination',
-    damageDescription: 'Sewage drain breach into apartment drinking sump. 120 residents stranded on upper floors.',
-    severity: 'CRITICAL',
-    status: 'PENDING_REVIEW',
-    reportedAt: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
-    verifiedBy: null,
-  },
-  {
-    id: 'REP-BLR-086',
-    userId: 'cit-106',
-    reporterName: 'Vandana Rao',
-    reporterEmail: 'vandana.r@yahoo.com',
-    reporterPhone: '+91 80285 71190',
-    zone: 'Yelahanka',
-    landmark: 'Kendriya Vihar & Kogilu Cross Road',
-    waterDepthFeet: 4.2,
-    damageType: 'Road Submersion',
-    damageDescription: 'Main entry gate road submerged under 4ft water. Tractors and boats only way in.',
-    severity: 'CRITICAL',
-    status: 'PENDING_REVIEW',
-    reportedAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
-    verifiedBy: null,
-  },
-  {
-    id: 'REP-BLR-077',
-    userId: 'cit-107',
-    reporterName: 'Murali Mohan',
-    reporterEmail: 'murali.m@gmail.com',
-    reporterPhone: '+91 98860 33145',
-    zone: 'Bommanahalli',
-    landmark: 'Silk Board Junction (Service lane near Madiwala Lake canal)',
-    waterDepthFeet: 2.2,
-    damageType: 'Road Submersion',
-    damageDescription: 'Service lane water accumulated 2.2ft. 2 two-wheelers skidded. Traffic backed up 2km.',
-    severity: 'HIGH',
-    status: 'PENDING_REVIEW',
-    reportedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    verifiedBy: null,
-  },
-]
+// Initial Seed Data (Empty and ready to be filled dynamically)
+const SEED_DAMAGE_REPORTS: CitizenDamageReport[] = []
+const SEED_ADVISORIES: AuthorityAdvisory[] = []
+const SEED_DONATIONS: DonationRecord[] = []
 
-// Initial Seed Advisories
-const SEED_ADVISORIES: AuthorityAdvisory[] = [
-  {
-    id: 'ADV-BLR-01',
-    title: 'RED ZONE DIVERSION: Outer Ring Road EcoSpace Underpass Submerged (3.5ft Water)',
-    zone: 'Mahadevapura',
-    severity: 'CRITICAL',
-    message: 'Multiple citizen reports confirm 3.5ft inundation at EcoSpace underpass. BBMP & Traffic Police have closed service lanes. Divert immediately to safe alternative elevated corridors.',
-    waterDepthReported: '3.2 - 3.5 Feet',
-    saferAlternativeRoute: 'HAL Old Airport Road ➔ Suranjandas Road ➔ Marathahalli Bridge (Elevated 4.2m above drainage gradient, 0mm standing water)',
-    authorityName: 'Er. Ramesh Gowda (BBMP Disaster Relief Lead)',
-    publishedAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
-    active: true,
-  },
-]
-
-// Initial Seed Donations
-const SEED_DONATIONS: DonationRecord[] = [
-  {
-    id: 'DON-2024-BLR-101',
-    userId: 'seed-donor-1',
-    donorName: 'Dr. Shalini Hegde',
-    donorEmail: 'shalini.hegde@victoria.blr.gov.in',
-    donorPhone: '+91 98450 11220',
-    amount: 50000,
-    targetReliefCause: 'Emergency ICU Oxygen & Medical Equipment',
-    paymentMethod: 'UPI (Disaster Fund)',
-    timestamp: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
-    taxExemptionToken: 'KAR-80G-BLR-98421',
-  },
-  {
-    id: 'DON-2024-BLR-102',
-    userId: 'seed-donor-2',
-    donorName: 'Bengaluru Techies for Relief',
-    donorEmail: 'contact@bengalurutech.org',
-    donorPhone: '+91 97410 88201',
-    amount: 250000,
-    targetReliefCause: 'Clean Potable Water Tankers & Food Ration Kits',
-    paymentMethod: 'NetBanking (NEFT)',
-    timestamp: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
-    taxExemptionToken: 'KAR-80G-BLR-98440',
-  },
-  {
-    id: 'DON-2024-BLR-103',
-    userId: 'seed-donor-3',
-    donorName: 'Priya Ramanathan',
-    donorEmail: 'priya.citizen@safeground.blr',
-    donorPhone: '+91 98450 77123',
-    amount: 15000,
-    targetReliefCause: 'Flood Rescue Boats & Life Jacket Deployment',
-    paymentMethod: 'UPI',
-    timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    taxExemptionToken: 'KAR-80G-BLR-98512',
-  },
-]
 
 // Event Listeners for real-time reactivity
 type Listener = () => void
@@ -301,16 +132,15 @@ export function subscribeToDonations(cb: Listener): () => void {
 // ============================================================
 
 export function getAllDamageReports(): CitizenDamageReport[] {
-  if (typeof window === 'undefined') return SEED_DAMAGE_REPORTS
+  if (typeof window === 'undefined') return []
   try {
     const raw = localStorage.getItem(DAMAGE_REPORTS_KEY)
     if (!raw) {
-      localStorage.setItem(DAMAGE_REPORTS_KEY, JSON.stringify(SEED_DAMAGE_REPORTS))
-      return SEED_DAMAGE_REPORTS
+      return []
     }
     return JSON.parse(raw)
   } catch {
-    return SEED_DAMAGE_REPORTS
+    return []
   }
 }
 
@@ -440,16 +270,15 @@ export function getCrowdsourcedRedZones(): CrowdsourcedRedZone[] {
 // ============================================================
 
 export function getAllAdvisories(): AuthorityAdvisory[] {
-  if (typeof window === 'undefined') return SEED_ADVISORIES
+  if (typeof window === 'undefined') return []
   try {
     const raw = localStorage.getItem(ADVISORIES_KEY)
     if (!raw) {
-      localStorage.setItem(ADVISORIES_KEY, JSON.stringify(SEED_ADVISORIES))
-      return SEED_ADVISORIES
+      return []
     }
     return JSON.parse(raw)
   } catch {
-    return SEED_ADVISORIES
+    return []
   }
 }
 
@@ -607,16 +436,15 @@ export function getWardPreparednessStats(): WardPreparednessStat[] {
 export const MAX_DONATION_AMOUNT = 1000000 // Rs 10 Lakh
 
 export function getAllDonations(): DonationRecord[] {
-  if (typeof window === 'undefined') return SEED_DONATIONS
+  if (typeof window === 'undefined') return []
   try {
     const raw = localStorage.getItem(DONATIONS_KEY)
     if (!raw) {
-      localStorage.setItem(DONATIONS_KEY, JSON.stringify(SEED_DONATIONS))
-      return SEED_DONATIONS
+      return []
     }
     return JSON.parse(raw)
   } catch {
-    return SEED_DONATIONS
+    return []
   }
 }
 
@@ -700,4 +528,18 @@ export function getTotalReliefFunds(): { totalAmount: number; totalDonors: numbe
     totalDonors: uniqueDonors,
     totalTransactions: donations.length,
   }
+}
+
+/**
+ * Clear all damage reports, official advisories, and relief fund donations
+ */
+export function clearAllIncidentAndReliefData() {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(DAMAGE_REPORTS_KEY)
+    localStorage.removeItem(ADVISORIES_KEY)
+    localStorage.removeItem(DONATIONS_KEY)
+  }
+  notifyReports()
+  notifyAdvisories()
+  notifyDonations()
 }

@@ -112,7 +112,7 @@ export default function MobileHeader({ user, onSignOut }: MobileHeaderProps) {
                 zIndex: 100,
               }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--pri-neon)', padding: '4px 6px', textTransform: 'uppercase' }}>
-                  Switch Evaluator Role:
+                  Switch Operations Role:
                 </div>
                 {(['citizen', 'ksndmc', 'bbmp'] as UserRole[]).map(r => {
                   const preset = ROLE_PRESETS[r]
@@ -123,7 +123,7 @@ export default function MobileHeader({ user, onSignOut }: MobileHeaderProps) {
                       onClick={() => {
                         playSuccessSound()
                         loginAsRole(r)
-                        toast.success('Clearance Switched', `Active session: ${preset.name}`)
+                        toast.success('Role Switched', `Active session: ${preset.name}`)
                         setRoleMenuOpen(false)
                       }}
                       style={{

@@ -69,7 +69,8 @@ export default function Landing({ weatherData }: LandingProps) {
   const handleGatedNav = (path: string, featureTitle: string) => {
     playClickSound()
     if (!user) {
-      setGateState({ isOpen: true, targetPath: path, featureTitle })
+      toast.info('Login Required', `Please log in to access ${featureTitle || 'SafeGround'}.`)
+      navigate(`/auth?redirect=${encodeURIComponent(path)}`)
     } else {
       navigate(path)
     }
@@ -210,17 +211,6 @@ export default function Landing({ weatherData }: LandingProps) {
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={handleQuickCitizenLogin}
-                  className="btn-glass"
-                  style={{ padding: '8px 13px', fontSize: 12, borderRadius: 9999, border: '1px solid rgba(16, 185, 129, 0.4)' }}
-                >
-                  <Sparkles size={13} color="#34D399" />
-                  <span>Demo</span>
-                </motion.button>
-
                 <Link to="/auth?tab=login" onClick={() => playClickSound()} style={{ textDecoration: 'none' }}>
                   <motion.button
                     whileHover={{ scale: 1.04 }}
