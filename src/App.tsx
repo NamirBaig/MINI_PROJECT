@@ -1,15 +1,19 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useAuth } from './hooks/useAuth'
+import { AuthProvider, useAuth } from './hooks/useAuth'
 import { useWeather } from './hooks/useWeather'
+import { ToastProvider, useToast } from './context/ToastContext'
 import Navbar from './components/Navbar'
+import MobileDock from './components/MobileDock'
+import MobileHeader from './components/MobileHeader'
+import ExecutiveTopBar from './components/ExecutiveTopBar'
 import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
 import RiskMap from './pages/RiskMap'
-import Simulation from './pages/Simulation'
 import Climate from './pages/Climate'
 import Preparedness from './pages/Preparedness'
 import Resources from './pages/Resources'
+import YelahankaHub from './pages/YelahankaHub'
 import Auth from './pages/Auth'
 
 const pageVariants = {
@@ -21,18 +25,34 @@ const pageVariants = {
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut } = useAuth()
   const weather = useWeather()
+  const navigate = useNavigate()
+  const toast = useToast()
 
   if (loading) return <LoadingScreen />
-  if (!user) return <Navigate to="/auth" replace />
+
+  if (!user) {
+    return <Navigate to="/auth" replace />
+  }
+
+  const handleSignOut = async () => {
+    await signOut()
+    toast.info('Signed Out', 'You have been safely signed out.')
+    navigate('/auth', { replace: true })
+  }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-      <Navbar user={user} onSignOut={signOut} weather={weather} />
-      <main style={{ flex: 1, minWidth: 0, height: '100vh', overflowY: 'auto' }}>
-        <AnimatePresence mode="wait">
-          {children}
-        </AnimatePresence>
-      </main>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg)' }}>
+      <MobileHeader user={user} onSignOut={handleSignOut} />
+      <ExecutiveTopBar user={user} onSignOut={handleSignOut} weather={weather} />
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <Navbar user={user} onSignOut={handleSignOut} weather={weather} />
+        <MobileDock />
+        <main className="app-main-content">
+          <AnimatePresence mode="wait">
+            {children}
+          </AnimatePresence>
+        </main>
+      </div>
     </div>
   )
 }
@@ -44,7 +64,7 @@ function AnimatedPage({ children }: { children: React.ReactNode }) {
       initial="initial"
       animate="animate"
       exit="exit"
-      style={{ padding: '36px 44px 80px', maxWidth: '1240px', margin: '0 auto' }}
+      className="page-container"
     >
       {children}
     </motion.div>
@@ -64,9 +84,10 @@ function LoadingScreen() {
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
         style={{
-          width: 40, height: 40,
+          width: 44,
+          height: 44,
           borderRadius: '50%',
-          border: '3px solid var(--ln)',
+          border: '3px solid rgba(16, 185, 129, 0.15)',
           borderTopColor: 'var(--pri)',
         }}
       />
@@ -87,15 +108,13 @@ function AppRoutes() {
         <Route
           path="/"
           element={
-            user ? <Navigate to="/dashboard" replace /> : (
-              <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                <Landing weatherData={weather} />
-              </motion.div>
-            )
+            <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+              <Landing weatherData={weather} />
+            </motion.div>
           }
         />
 
-        {/* Auth */}
+        {/* Auth page */}
         <Route
           path="/auth"
           element={
@@ -113,14 +132,14 @@ function AppRoutes() {
             <AnimatedPage key="dashboard"><Dashboard weatherData={weather} /></AnimatedPage>
           </ProtectedLayout>
         } />
+        <Route path="/yelahanka" element={
+          <ProtectedLayout>
+            <AnimatedPage key="yelahanka"><YelahankaHub /></AnimatedPage>
+          </ProtectedLayout>
+        } />
         <Route path="/risk-map" element={
           <ProtectedLayout>
             <AnimatedPage key="risk-map"><RiskMap /></AnimatedPage>
-          </ProtectedLayout>
-        } />
-        <Route path="/simulation" element={
-          <ProtectedLayout>
-            <AnimatedPage key="simulation"><Simulation /></AnimatedPage>
           </ProtectedLayout>
         } />
         <Route path="/climate" element={
@@ -130,7 +149,7 @@ function AppRoutes() {
         } />
         <Route path="/preparedness" element={
           <ProtectedLayout>
-            <AnimatedPage key="preparedness"><Preparedness /></AnimatedPage>
+            <AnimatedPage key="preparedness"><Preparedness weatherData={weather} /></AnimatedPage>
           </ProtectedLayout>
         } />
         <Route path="/resources" element={
@@ -148,8 +167,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <ToastProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
+    </ToastProvider>
   )
 }

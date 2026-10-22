@@ -1,481 +1,825 @@
-import { useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion, useInView } from 'framer-motion'
-import { ArrowRight, Droplets, ThermometerSun, Map, Zap, Shield, AlertTriangle, Users, TrendingUp } from 'lucide-react'
+import {
+  Shield, ArrowRight, Droplets, ThermometerSun, Map, Zap,
+  AlertTriangle, Users, TrendingUp, Radio, Activity, ChevronRight,
+  BookOpen, Compass, ExternalLink, Sparkles, Building2, User, CheckSquare,
+  LogOut, Lock, UserPlus
+} from 'lucide-react'
 import type { WeatherData } from '../hooks/useWeather'
 import { HISTORICAL_DISASTERS, BENGALURU_STATS } from '../data/bengaluru'
+import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../context/ToastContext'
+import { playClickSound, playSuccessSound } from '../utils/audioFeedback'
+import AnimatedWeatherBadge, { AnimatedWeatherIcon, AnimatedWeatherBoxCanvas } from '../components/AnimatedWeatherBadge'
+import AuthGateModal from '../components/AuthGateModal'
 
 interface LandingProps {
   weatherData: WeatherData
 }
 
-// Animated counter that counts up on mount
-function CountUp({ target, suffix = '', duration = 2000 }: { target: number; suffix?: string; duration?: number }) {
+function AnimatedCounter({ target, suffix = '', duration = 1600, isFloat = false }: { target: number; suffix?: string; duration?: number; isFloat?: boolean }) {
   const ref = useRef<HTMLSpanElement>(null)
   const inView = useInView(ref, { once: true })
 
-  return (
-    <motion.span
-      ref={ref}
-      initial={{ opacity: 0 }}
-      animate={inView ? { opacity: 1 } : {}}
-    >
-      <motion.span
-        initial={{ opacity: 0 }}
-        animate={inView ? { opacity: 1 } : {}}
-        onAnimationComplete={() => {
-          if (!ref.current) return
-          let start = 0
-          const step = target / (duration / 16)
-          const timer = setInterval(() => {
-            start += step
-            if (start >= target) {
-              if (ref.current) ref.current.textContent = target.toLocaleString() + suffix
-              clearInterval(timer)
-            } else {
-              if (ref.current) ref.current.textContent = Math.floor(start).toLocaleString() + suffix
-            }
-          }, 16)
-        }}
-      >
-        {0}
-      </motion.span>
-    </motion.span>
-  )
-}
+  useEffect(() => {
+    if (!inView || !ref.current) return
+    let startTime: number | null = null
+    let animationFrameId: number
 
-// Particle rain animation
-function RainParticles() {
-  const particles = Array.from({ length: 20 }, (_, i) => i)
-  return (
-    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-      {particles.map(i => (
-        <motion.div
-          key={i}
-          animate={{
-            y: ['0vh', '110vh'],
-            opacity: [0, 0.6, 0.6, 0],
-          }}
-          transition={{
-            duration: 2 + Math.random() * 3,
-            repeat: Infinity,
-            delay: Math.random() * 4,
-            ease: 'linear',
-          }}
-          style={{
-            position: 'absolute',
-            left: `${(i / 20) * 100}%`,
-            top: '-5%',
-            width: 1.5,
-            height: 12 + Math.random() * 12,
-            background: 'rgba(157,191,169,0.5)',
-            borderRadius: 1,
-          }}
-        />
-      ))}
-    </div>
-  )
-}
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp
+      const elapsed = timestamp - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      // High-performance cubic ease-out
+      const easeProgress = 1 - Math.pow(1 - progress, 3)
+      const currentVal = target * easeProgress
 
-function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const ref = useRef(null)
-  const inView = useInView(ref, { once: true, margin: '-80px' })
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 30 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.5, delay, ease: 'easeOut' }}
-    >
-      {children}
-    </motion.div>
-  )
-}
+      if (ref.current) {
+        ref.current.textContent = (isFloat ? currentVal.toFixed(1) : Math.floor(currentVal).toLocaleString()) + suffix
+      }
 
-const headline = ['Prepare', 'before', 'the', 'crisis.']
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(step)
+      }
+    }
+
+    animationFrameId = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(animationFrameId)
+  }, [inView, target, suffix, duration, isFloat])
+
+  return <span ref={ref}>{isFloat ? target.toFixed(1) : target.toLocaleString()}{suffix}</span>
+}
 
 export default function Landing({ weatherData }: LandingProps) {
-  const severityColor = (s: string) =>
-    s === 'CRITICAL' ? '#8a1f1f' : s === 'HIGH' ? '#b04a34' : s === 'MODERATE' ? '#996b0c' : '#4c8c5e'
+  const navigate = useNavigate()
+  const { user, loginAsRole, signOut } = useAuth()
+  const toast = useToast()
+  const [activeTab, setActiveTab] = useState<'telemetry' | 'replay' | 'research'>('telemetry')
+  const [gateState, setGateState] = useState<{ isOpen: boolean; targetPath: string; featureTitle: string }>({
+    isOpen: false,
+    targetPath: '/dashboard',
+    featureTitle: 'Disaster Telemetry Dashboard',
+  })
+  const headlineWords = ['PREPARE', 'BEFORE', 'THE', 'CRISIS.']
 
-  const disasterType = weatherData.floodRiskToday > 50 ? '🌧️ High flood risk today' : '✓ Conditions normal'
+  const floodColor = weatherData.floodRiskToday > 60 ? '#EF4444' : weatherData.floodRiskToday > 35 ? '#F59E0B' : '#10B981'
+
+  const handleGatedNav = (path: string, featureTitle: string) => {
+    playClickSound()
+    if (!user) {
+      setGateState({ isOpen: true, targetPath: path, featureTitle })
+    } else {
+      navigate(path)
+    }
+  }
+
+  const handleQuickCitizenLogin = () => {
+    playSuccessSound()
+    loginAsRole('citizen')
+    toast.success('Resident Session Started', 'Logged in as Priya Ramanathan')
+    navigate('/dashboard')
+  }
+
+  const handleSignOut = async () => {
+    playClickSound()
+    await signOut()
+    toast.info('Signed Out', 'You have been safely signed out.')
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--tx)', position: 'relative', overflowX: 'hidden' }} className="bg-grid-pattern">
+      {/* ─── Ambient Glow Spheres ───────────────────────────────────────── */}
+      <div className="aurora-glow" style={{ top: '-150px', left: '-100px', background: 'radial-gradient(circle, rgba(16,185,129,0.2) 0%, transparent 70%)' }} />
+      <div className="aurora-glow" style={{ top: '30%', right: '-150px', background: 'radial-gradient(circle, rgba(6,182,212,0.12) 0%, transparent 70%)' }} />
+      <div className="aurora-glow" style={{ bottom: '10%', left: '10%', background: 'radial-gradient(circle, rgba(163,230,53,0.08) 0%, transparent 70%)' }} />
 
-      {/* ─── Hero ─────────────────────────────────────────── */}
-      <div style={{
-        position: 'relative',
-        minHeight: '92vh',
-        display: 'flex',
-        alignItems: 'center',
-        background: 'linear-gradient(135deg, #17372D 0%, #1e4a3a 50%, #243d35 100%)',
-        overflow: 'hidden',
-      }}>
-        <RainParticles />
-
-        {/* Gradient overlay */}
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'radial-gradient(ellipse at 30% 50%, rgba(157,191,169,0.12) 0%, transparent 60%)',
-          pointerEvents: 'none',
-        }} />
-
-        <div style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto', padding: '60px 40px', width: '100%' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 420px', gap: 48, alignItems: 'center' }}>
-
-            {/* Left: Copy */}
+      {/* ─── Floating Island Top Navigation ─────────────────────────────── */}
+      <header style={{ position: 'sticky', top: 16, zIndex: 90, padding: '0 20px', maxWidth: 1240, margin: '0 auto' }}>
+        <motion.div
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="glass-panel"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 24px',
+            borderRadius: 9999,
+            border: '1px solid rgba(255,255,255,0.14)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
+          }}
+        >
+          {/* Logo */}
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+            <div style={{
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              background: 'linear-gradient(135deg, #10B981 0%, #065F46 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 15px rgba(16,185,129,0.5)',
+            }}>
+              <Shield size={20} color="#030604" strokeWidth={2.5} />
+            </div>
             <div>
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
+              <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.04em', color: '#FFFFFF' }}>SAFEGROUND</span>
+              <span style={{ display: 'block', fontSize: 10, color: 'var(--pri-neon)', fontWeight: 700, letterSpacing: '0.12em' }}>BENGALURU RESILIENCE</span>
+            </div>
+          </Link>
+
+          {/* Desktop Nav Links (Auth Gated) */}
+          <nav className="desktop-nav" style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+            <button
+              onClick={() => handleGatedNav('/dashboard', 'Live Disaster Dashboard')}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: 500, cursor: 'pointer', padding: 0 }}
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => handleGatedNav('/yelahanka', 'Yelahanka Flood Watch Hub')}
+              style={{ background: 'none', border: 'none', color: 'var(--pri-neon)', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: 0 }}
+            >
+              <Radio size={14} className="live-dot" /> Yelahanka Live Hub
+            </button>
+            <button
+              onClick={() => handleGatedNav('/risk-map', '8-Zone BBMP Hazard Map')}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: 500, cursor: 'pointer', padding: 0 }}
+            >
+              Risk Map
+            </button>
+            <button
+              onClick={() => handleGatedNav('/preparedness', 'Family Disaster Preparedness Plan')}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: 500, cursor: 'pointer', padding: 0 }}
+            >
+              Preparedness
+            </button>
+            <button
+              onClick={() => handleGatedNav('/climate', 'IISc Research & Climate Archive')}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: 500, cursor: 'pointer', padding: 0 }}
+            >
+              Climate Archive
+            </button>
+          </nav>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="desktop-nav">
+              <AnimatedWeatherBadge
+                condition={weatherData.condition}
+                temp={weatherData.currentTemp}
+                size={16}
+                showConditionText={true}
+              />
+            </div>
+
+            {user ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => handleGatedNav('/dashboard', 'Disaster Cockpit')}
+                  className="btn-shiny"
+                  style={{ padding: '8px 16px', fontSize: 13, borderRadius: 9999, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <span>Cockpit ({user.user_metadata?.full_name?.split(' ')[0] || 'Resident'})</span>
+                  <ArrowRight size={14} />
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  title="Sign Out"
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 9999,
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    color: '#F87171',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <LogOut size={13} />
+                  <span className="desktop-nav">Sign Out</span>
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <motion.button
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={handleQuickCitizenLogin}
+                  className="btn-glass"
+                  style={{ padding: '8px 13px', fontSize: 12, borderRadius: 9999, border: '1px solid rgba(16, 185, 129, 0.4)' }}
+                >
+                  <Sparkles size={13} color="#34D399" />
+                  <span>Demo</span>
+                </motion.button>
+
+                <Link to="/auth?tab=login" onClick={() => playClickSound()} style={{ textDecoration: 'none' }}>
+                  <motion.button
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    style={{
+                      padding: '8px 14px',
+                      fontSize: 12.5,
+                      borderRadius: 9999,
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#FFFFFF',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Sign In
+                  </motion.button>
+                </Link>
+
+                <Link to="/auth?tab=signup" onClick={() => playClickSound()} style={{ textDecoration: 'none' }}>
+                  <motion.button
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    className="btn-shiny"
+                    style={{ padding: '8px 16px', fontSize: 12.5, borderRadius: 9999 }}
+                  >
+                    <UserPlus size={13} />
+                    <span>Sign Up</span>
+                  </motion.button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </header>
+
+      {/* ─── Hero Section ───────────────────────────────────────────────── */}
+      <section style={{ maxWidth: 1240, margin: '40px auto 80px', padding: '0 24px', position: 'relative', zIndex: 1 }}>
+        <div style={{ textAlign: 'center', maxWidth: 960, margin: '0 auto 60px' }}>
+          {/* Badge */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="status-pill"
+            style={{ marginBottom: 24, boxShadow: '0 0 20px rgba(16,185,129,0.2)' }}
+          >
+            <span className="live-dot" />
+            <span>KSNDMC & BBMP Open Telemetry Integrated • Version 2.4</span>
+          </motion.div>
+
+          {/* Headline */}
+          <h1 style={{
+            fontSize: 'clamp(42px, 8vw, 84px)',
+            fontWeight: 900,
+            lineHeight: 1.02,
+            letterSpacing: '-0.03em',
+            margin: '0 0 24px',
+            color: '#FFFFFF',
+          }}>
+            {headlineWords.map((word, i) => (
+              <motion.span
+                key={word}
+                initial={{ opacity: 0, y: 35 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
+                transition={{ delay: 0.08 * i, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
-                  borderRadius: 20, padding: '6px 14px', marginBottom: 24,
-                  color: 'rgba(255,255,255,0.8)', fontSize: 13,
+                  display: 'inline-block',
+                  marginRight: '0.24em',
+                  background: i === 0 ? 'linear-gradient(135deg, #FFFFFF 0%, #34D399 100%)' :
+                              i === 1 ? 'linear-gradient(135deg, #FFFFFF 0%, #A3E635 100%)' :
+                              i === 3 ? 'linear-gradient(135deg, #34D399 0%, #06B6D4 100%)' : '#FFFFFF',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
                 }}
               >
-                <Shield size={13} />
-                Bengaluru Disaster Preparedness Platform
-              </motion.div>
-
-              <h1 style={{ color: 'white', fontSize: 'clamp(38px,6vw,64px)', lineHeight: 1.1, marginBottom: 20 }}>
-                {headline.map((word, i) => (
-                  <motion.span
-                    key={word}
-                    initial={{ opacity: 0, y: 24 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 + i * 0.1, duration: 0.4, ease: 'easeOut' }}
-                    style={{ display: 'inline-block', marginRight: '0.28em' }}
-                  >
-                    {word}
-                  </motion.span>
-                ))}
-              </h1>
-
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.65 }}
-                style={{ color: 'rgba(255,255,255,0.72)', fontSize: 18, maxWidth: '36ch', marginBottom: 36, lineHeight: 1.65 }}
-              >
-                Know Bengaluru's real hazards. Simulate what happens when Bellandur overflows.
-                Plan your response before the next megaflood.
-              </motion.p>
-
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
-                style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}
-              >
-                <Link to="/risk-map" style={{ textDecoration: 'none' }}>
-                  <motion.button
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    style={{
-                      background: '#9DBFA9', color: '#17372D', border: 'none',
-                      padding: '13px 24px', borderRadius: 8, cursor: 'pointer',
-                      fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8,
-                    }}
-                  >
-                    <Map size={16} /> Explore Bengaluru Risk <ArrowRight size={15} />
-                  </motion.button>
-                </Link>
-                <Link to="/simulation" style={{ textDecoration: 'none' }}>
-                  <motion.button
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    style={{
-                      background: 'rgba(255,255,255,0.08)',
-                      color: 'white',
-                      border: '1.5px solid rgba(255,255,255,0.25)',
-                      padding: '12px 24px', borderRadius: 8, cursor: 'pointer',
-                      fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8,
-                    }}
-                  >
-                    <Zap size={16} /> Run Simulation
-                  </motion.button>
-                </Link>
-              </motion.div>
-            </div>
-
-            {/* Right: Live weather card */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5, duration: 0.5 }}
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: 16,
-                padding: 24,
-                backdropFilter: 'blur(10px)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <div>
-                  <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 600, letterSpacing: 0.5 }}>BENGALURU, LIVE</div>
-                  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>
-                    {weatherData.isLoading ? 'Loading...' : weatherData.lastUpdated.toLocaleTimeString()}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div className="live-dot" />
-                  <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>Live</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 20 }}>
-                <div style={{ fontSize: 52, fontWeight: 700, color: 'white', lineHeight: 1 }}>
-                  {weatherData.currentTemp}°
-                </div>
-                <div style={{ paddingBottom: 8, color: 'rgba(255,255,255,0.65)', fontSize: 14 }}>
-                  <div>{weatherData.condition}</div>
-                  <div>Feels {weatherData.feelsLike}°C</div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-                {[
-                  { icon: <Droplets size={14} />, label: 'Rainfall 24h', value: `${weatherData.rainfall24h} mm` },
-                  { icon: <ThermometerSun size={14} />, label: 'Humidity', value: `${weatherData.humidity}%` },
-                ].map(({ icon, label, value }) => (
-                  <div key={label} style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: '10px 12px' }}>
-                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-                      {icon} {label}
-                    </div>
-                    <div style={{ color: 'white', fontWeight: 600 }}>{value}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Risk bar */}
-              <div style={{ marginBottom: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>
-                  <span>Flood Risk Today</span>
-                  <span style={{ color: weatherData.floodRiskToday > 60 ? '#f47c6a' : weatherData.floodRiskToday > 35 ? '#e6c55a' : '#8dc9a0', fontWeight: 600 }}>
-                    {weatherData.floodRiskToday}%
-                  </span>
-                </div>
-                <div style={{ height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${weatherData.floodRiskToday}%` }}
-                    transition={{ delay: 0.8, duration: 1, ease: 'easeOut' }}
-                    style={{
-                      height: '100%',
-                      background: weatherData.floodRiskToday > 60 ? '#C85C45' : weatherData.floodRiskToday > 35 ? '#D59A2A' : '#4c8c5e',
-                      borderRadius: 3,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ fontSize: 12, color: weatherData.floodRiskToday > 35 ? '#f47c6a' : 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                {weatherData.floodRiskToday > 35 ? <AlertTriangle size={12} /> : null}
-                {disasterType}
-              </div>
-              {weatherData.error && (
-                <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,150,50,0.8)' }}>⚠ {weatherData.error}</div>
-              )}
-            </motion.div>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── Stats bar ────────────────────────────────────── */}
-      <div style={{ background: 'var(--surf)', borderBottom: '1px solid var(--ln)', padding: '32px 40px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32 }}>
-          {[
-            { icon: <Map size={22} style={{ color: '#C85C45' }} />, label: 'Lakes At Risk', target: BENGALURU_STATS.lakes, suffix: '' },
-            { icon: <Users size={22} style={{ color: 'var(--pri)' }} />, label: 'Million Residents', target: 13.2, suffix: 'M', isFloat: true },
-            { icon: <Droplets size={22} style={{ color: '#526C78' }} />, label: 'mm Peak Rainfall (2022)', target: 131, suffix: '' },
-            { icon: <TrendingUp size={22} style={{ color: '#D59A2A' }} />, label: '°C Temperature Rise (2015–2025)', target: 2.4, suffix: '°C', isFloat: true },
-          ].map(({ icon, label, target, suffix }) => {
-            const ref = useRef(null)
-            const inView = useInView(ref, { once: true })
-            return (
-              <FadeInSection key={label}>
-                <div ref={ref} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <div style={{ width: 48, height: 48, background: 'var(--bg)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--ln)' }}>
-                    {icon}
-                  </div>
-                  <div>
-                    <motion.div
-                      style={{ fontSize: 30, fontWeight: 700, color: 'var(--tx)', lineHeight: 1 }}
-                      initial={{ opacity: 0 }}
-                      animate={inView ? { opacity: 1 } : {}}
-                    >
-                      {inView ? (
-                        <AnimatedNumber target={target} suffix={suffix} />
-                      ) : '0'}
-                    </motion.div>
-                    <div style={{ fontSize: 13, color: 'var(--tx-muted)', marginTop: 2 }}>{label}</div>
-                  </div>
-                </div>
-              </FadeInSection>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* ─── Historical disasters ──────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: '60px auto', padding: '0 40px' }}>
-        <FadeInSection>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: 22 }}>Recent Disasters in Bengaluru</h2>
-              <p style={{ color: 'var(--tx-muted)', margin: '6px 0 0', fontSize: 14 }}>
-                Real events that shaped our understanding of urban risk
-              </p>
-            </div>
-            <Link to="/simulation" style={{ textDecoration: 'none' }}>
-              <button className="btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                Simulate these <ArrowRight size={14} />
-              </button>
-            </Link>
-          </div>
-        </FadeInSection>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
-          {HISTORICAL_DISASTERS.slice(0, 3).map((d, i) => (
-            <FadeInSection key={d.event} delay={i * 0.1}>
-              <motion.div
-                whileHover={{ y: -4, boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}
-                className="card"
-                style={{ padding: 24 }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 12 }}>
-                  <span style={{ fontSize: 24 }}>
-                    {d.type === 'Flood' ? '🌊' : d.type === 'Heatwave' ? '🌡️' : d.type === 'Cloudbursts' ? '⛈️' : '⚠️'}
-                  </span>
-                  <span style={{
-                    fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 12,
-                    background: 'var(--dan-bg)', color: 'var(--dan)', border: '1px solid rgba(200,92,69,0.2)',
-                  }}>
-                    {d.month} {d.year}
-                  </span>
-                </div>
-                <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>{d.event}</h3>
-                <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--tx-muted)', lineHeight: 1.55 }}>
-                  {d.description.slice(0, 120)}...
-                </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, borderTop: '1px solid var(--ln)', paddingTop: 12 }}>
-                  {[
-                    { label: 'Deaths', value: d.deaths },
-                    { label: 'Displaced', value: d.displaced.toLocaleString() },
-                    { label: `${d.peakRainfall > 0 ? d.peakRainfall + 'mm' : '—'}`, value: d.estimatedLoss > 0 ? `₹${d.estimatedLoss}Cr` : '' },
-                  ].map(({ label, value }) => (
-                    <div key={label}>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--tx)' }}>{value}</div>
-                      <div style={{ fontSize: 11, color: 'var(--tx-muted)' }}>{label}</div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            </FadeInSection>
-          ))}
-        </div>
-      </div>
-
-      {/* ─── How it works ─────────────────────────────────── */}
-      <div style={{ background: 'var(--surf)', borderTop: '1px solid var(--ln)', padding: '60px 40px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <FadeInSection>
-            <h2 style={{ textAlign: 'center', marginBottom: 8, fontSize: 22 }}>How SafeGround Works</h2>
-            <p style={{ textAlign: 'center', color: 'var(--tx-muted)', marginBottom: 40 }}>
-              Four steps from awareness to action
-            </p>
-          </FadeInSection>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 24 }}>
-            {[
-              { step: '01', title: 'Assess Hazards', desc: 'View Bengaluru zone-wise risk for floods, heat, and landslides — calibrated against BBMP data.', icon: <Map size={24} /> },
-              { step: '02', title: 'Run Simulations', desc: 'Replay the Sep 2022 megaflood or create custom scenarios. See real impact estimates instantly.', icon: <Zap size={24} /> },
-              { step: '03', title: 'Build Your Plan', desc: 'Complete your preparedness checklist. Tasks save automatically to your profile.', icon: <Shield size={24} /> },
-              { step: '04', title: 'Stay Updated', desc: 'Live weather data from Open-Meteo refreshes every 10 minutes. Real flood risk, always.', icon: <TrendingUp size={24} /> },
-            ].map((item, i) => (
-              <FadeInSection key={item.step} delay={i * 0.1}>
-                <motion.div whileHover={{ y: -3 }} className="card">
-                  <div style={{ color: 'var(--pri)', marginBottom: 12 }}>{item.icon}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx-muted)', letterSpacing: 1, marginBottom: 6 }}>STEP {item.step}</div>
-                  <h3 style={{ margin: '0 0 8px' }}>{item.title}</h3>
-                  <p style={{ margin: 0, fontSize: 14, color: 'var(--tx-muted)', lineHeight: 1.6 }}>{item.desc}</p>
-                </motion.div>
-              </FadeInSection>
+                {word}
+              </motion.span>
             ))}
-          </div>
-        </div>
-      </div>
+          </h1>
 
-      {/* ─── CTA ──────────────────────────────────────────── */}
-      <div style={{ textAlign: 'center', padding: '70px 40px', background: 'var(--bg)' }}>
-        <FadeInSection>
-          <h2 style={{ fontSize: 28, marginBottom: 12 }}>Ready to prepare Bengaluru?</h2>
-          <p style={{ color: 'var(--tx-muted)', marginBottom: 28 }}>
-            Join the platform used to understand and simulate urban disaster risk.
-          </p>
-          <Link to="/auth" style={{ textDecoration: 'none' }}>
+          {/* Subtitle */}
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            style={{
+              fontSize: 'clamp(16px, 2.2vw, 21px)',
+              lineHeight: 1.6,
+              color: 'rgba(255, 255, 255, 0.72)',
+              maxWidth: 780,
+              margin: '0 auto 40px',
+              fontWeight: 400,
+            }}
+          >
+            Bengaluru’s premier disaster intelligence platform. Calibrated directly against
+            <b style={{ color: '#34D399', fontWeight: 600 }}> IISc Technical Report 123</b> and live
+            <b style={{ color: '#A3E635', fontWeight: 600 }}> KSNDMC Varuna Mitra</b> telemetry.
+            Simulate flash floods, explore ward sensor matrices, and respond with scientific precision.
+          </motion.p>
+
+          {/* CTA Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.55, duration: 0.5 }}
+            style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}
+          >
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              className="btn-primary"
-              style={{ padding: '14px 32px', fontSize: 16 }}
+              className="btn-shiny"
+              onClick={() => handleGatedNav('/dashboard', 'Live SafeGround Dashboard')}
             >
-              Get Started — It's Free <ArrowRight size={16} />
+              <Activity size={18} /> Launch Live Dashboard <ArrowRight size={16} />
             </motion.button>
-          </Link>
-          <p style={{ marginTop: 16, fontSize: 13, color: 'var(--tx-muted)' }}>
-            Powered by Open-Meteo • Supabase • Real BBMP/KSNDMC data
+
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="btn-glass"
+              onClick={() => handleGatedNav('/yelahanka', 'Yelahanka Telemetry Hub')}
+            >
+              <Radio size={18} color="#34D399" /> Yelahanka Telemetry Hub
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="btn-glass"
+              onClick={() => handleGatedNav('/preparedness', 'Family Preparedness Plan')}
+            >
+              <CheckSquare size={18} color="#34D399" /> Family Preparedness Plan
+            </motion.button>
+          </motion.div>
+        </div>
+
+        {/* ─── Hero Live Telemetry Bento Cockpit ──────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7, duration: 0.6 }}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: 24,
+            marginTop: 40,
+          }}
+        >
+          {/* Card 1: Live Sensor Cockpit */}
+          <div className="bento-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--pri-neon)', letterSpacing: '0.1em' }}>
+                  BENGALURU LIVE TELEMETRY
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--tx-muted)', marginTop: 2 }}>
+                  Station TRG-BLR-01 • Open-Meteo Gateway
+                </div>
+              </div>
+              <span className="live-dot" />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18 }}>
+              <div style={{
+                position: 'relative',
+                overflow: 'hidden',
+                width: 58,
+                height: 58,
+                borderRadius: 14,
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
+                flexShrink: 0,
+              }}>
+                <AnimatedWeatherBoxCanvas condition={weatherData.condition} />
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <AnimatedWeatherIcon condition={weatherData.condition} size={32} />
+                </div>
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                  <span style={{ fontSize: 44, fontWeight: 900, color: '#FFFFFF', lineHeight: 1 }}>
+                    {weatherData.currentTemp}°C
+                  </span>
+                  <span style={{ fontSize: 14, color: 'var(--pri-neon)', fontWeight: 700 }}>
+                    {weatherData.condition}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)', marginTop: 3 }}>
+                  Feels like {weatherData.feelsLike}°C • Open-Meteo Live Feed
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+              <div style={{ background: 'rgba(255,255,255,0.04)', padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: 11, color: 'var(--tx-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Droplets size={13} color="#34D399" /> 24h Rainfall
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#FFFFFF', marginTop: 4 }}>
+                  {weatherData.rainfall24h} mm
+                </div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.04)', padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: 11, color: 'var(--tx-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <TrendingUp size={13} color="#06B6D4" /> Soil Saturation
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#FFFFFF', marginTop: 4 }}>
+                  {weatherData.humidity}%
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
+                <span style={{ color: 'var(--tx-muted)' }}>City Flood Risk Index</span>
+                <span style={{ color: floodColor, fontWeight: 700 }}>{weatherData.floodRiskToday}% Risk</span>
+              </div>
+              <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${weatherData.floodRiskToday}%` }}
+                  transition={{ duration: 1, ease: 'easeOut' }}
+                  style={{ height: '100%', background: floodColor }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Yelahanka Oct 2024 Forensic Replay */}
+          <div className="bento-card" style={{ border: '1px solid rgba(245,158,11,0.25)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B', letterSpacing: '0.1em' }}>
+                  OCT 2024 MEGAFLOOD REPLAY
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--tx-muted)', marginTop: 2 }}>
+                  Kendriya Vihar & Amanikere Cascade Breach
+                </div>
+              </div>
+              <span style={{ fontSize: 11, background: 'rgba(245,158,11,0.15)', color: '#F59E0B', padding: '3px 8px', borderRadius: 6, fontWeight: 700 }}>
+                157.5mm Peak
+              </span>
+            </div>
+
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: 16, borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
+                <span style={{ color: 'rgba(255,255,255,0.8)' }}>Submergence Depth:</span>
+                <b style={{ color: '#EF4444' }}>1.8 Meters (6.0 ft)</b>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
+                <span style={{ color: 'rgba(255,255,255,0.8)' }}>Amanikere Discharge:</span>
+                <b style={{ color: '#F59E0B' }}>3,240 vs 900 cusecs cap</b>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                <span style={{ color: 'rgba(255,255,255,0.8)' }}>NDRF Rescue Boats:</span>
+                <b style={{ color: '#34D399' }}>24 Motorized Crafts</b>
+              </div>
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleGatedNav('/yelahanka', 'Yelahanka Flood Telemetry')}
+              style={{
+                width: '100%',
+                background: 'rgba(245,158,11,0.12)',
+                border: '1px solid rgba(245,158,11,0.35)',
+                color: '#FDE68A',
+                padding: '10px',
+                borderRadius: 10,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+            >
+              Inspect Telemetric Sensors <ChevronRight size={14} />
+            </motion.button>
+          </div>
+
+          {/* Card 3: IISc Academic Calibration */}
+          <div className="bento-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-cyan)', letterSpacing: '0.1em' }}>
+                  IISC TECHNICAL REPORT 123
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--tx-muted)', marginTop: 2 }}>
+                  Prof. T.V. Ramachandra Empirical Hydrology
+                </div>
+              </div>
+              <BookOpen size={18} color="#06B6D4" />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div style={{ background: 'rgba(255,255,255,0.04)', padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: 11, color: 'var(--tx-muted)' }}>Paved Concrete Growth</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#34D399', marginTop: 4 }}>+1,005%</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.04)', padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: 11, color: 'var(--tx-muted)' }}>Runoff Coefficient</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#F59E0B', marginTop: 4 }}>0.85</div>
+              </div>
+            </div>
+
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5, margin: 0 }}>
+              85% of total rainfall transforms directly into instantaneous surface runoff due to vegetation loss from 68% down to 3.8%.
+            </p>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* ─── High-Impact Impact Counters ─────────────────────────────────── */}
+      <section style={{ borderTop: '1px solid var(--border-glass)', borderBottom: '1px solid var(--border-glass)', background: 'rgba(12,21,16,0.6)', padding: '48px 24px' }}>
+        <div style={{ maxWidth: 1240, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 32 }}>
+          {[
+            { icon: <Building2 size={24} color="#EF4444" />, target: BENGALURU_STATS.lakes, label: 'Lakes Under Severe Threat', suffix: ' Water Bodies' },
+            { icon: <Users size={24} color="#10B981" />, target: 13.2, label: 'Exposed Bengaluru Residents', suffix: 'M Citizens', isFloat: true },
+            { icon: <Droplets size={24} color="#06B6D4" />, target: 131, label: '2022 Megaflood Intensity', suffix: ' mm/24h' },
+            { icon: <TrendingUp size={24} color="#F59E0B" />, target: 2.4, label: 'Urban Heat Island Rise', suffix: ' °C Rise', isFloat: true },
+          ].map(({ icon, target, label, suffix, isFloat }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{
+                width: 52,
+                height: 52,
+                borderRadius: 14,
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                {icon}
+              </div>
+              <div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>
+                  <AnimatedCounter target={target} suffix={suffix} isFloat={isFloat} />
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--tx-muted)', marginTop: 4 }}>{label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── The Core Bento Grid Feature Matrix ─────────────────────────── */}
+      <section className="section-optimized" style={{ maxWidth: 1240, margin: '80px auto', padding: '0 24px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 50 }}>
+          <div className="status-pill" style={{ marginBottom: 16 }}>
+            <Sparkles size={13} />
+            <span>Interactive Engineering Modules</span>
+          </div>
+          <h2 style={{ fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+            Scientific Disaster Preparedness System
+          </h2>
+          <p style={{ color: 'var(--tx-muted)', fontSize: 16, marginTop: 10 }}>
+            Engineered to empower citizens, engineers, and government response units
           </p>
-        </FadeInSection>
-      </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }}>
+          {/* Bento 1: Yelahanka Flood Hub (Spans 7 cols) */}
+          <div className="bento-card" style={{ gridColumn: 'span 7' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div className="status-pill" style={{ background: 'rgba(16,185,129,0.15)', borderColor: '#10B981' }}>
+                <Radio size={12} />
+                <span>LOCAL FLOOD MONITORING</span>
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--tx-muted)' }}>Ward 01 to 05</span>
+            </div>
+
+            <h3 style={{ fontSize: 24, fontWeight: 800, color: '#FFFFFF', margin: '0 0 12px' }}>
+              Yelahanka Flood Watch & Simulator
+            </h3>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+              Monitor live water levels across Yelahanka Amanikere and simulate apartment flood depths at Kendriya Vihar. Real-time alerts for local residents.
+            </p>
+
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleGatedNav('/yelahanka', 'Yelahanka Flood Simulator')}
+                className="btn-shiny"
+                style={{ padding: '10px 20px', fontSize: 13 }}
+              >
+                Launch Yelahanka Hub <ArrowRight size={14} />
+              </motion.button>
+            </div>
+          </div>
+
+          {/* Bento 2: Citizen Preparedness & Go-Bag (Spans 5 cols) */}
+          <div className="bento-card" style={{ gridColumn: 'span 5' }}>
+            <div className="status-pill" style={{ background: 'rgba(16,185,129,0.15)', borderColor: '#10B981', color: '#34D399', marginBottom: 20 }}>
+              <CheckSquare size={12} />
+              <span>PRE-FILLED READINESS</span>
+            </div>
+
+            <h3 style={{ fontSize: 22, fontWeight: 800, color: '#FFFFFF', margin: '0 0 12px' }}>
+              Family Go-Bag & Evacuation Plans
+            </h3>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+              Choose from pre-filled profiles for apartments, ground floor homes, or daily commuters. Check readiness dynamically against today's live rainfall.
+            </p>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleGatedNav('/preparedness', 'Family Preparedness & Go-Bag')}
+              className="btn-glass"
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              Open Preparedness Plan <ChevronRight size={15} />
+            </motion.button>
+          </div>
+
+          {/* Bento 3: 8-Zone Risk Map (Spans 6 cols) */}
+          <div className="bento-card" style={{ gridColumn: 'span 6' }}>
+            <div className="status-pill" style={{ background: 'rgba(59,130,246,0.15)', borderColor: '#3B82F6', color: '#93C5FD', marginBottom: 20 }}>
+              <Map size={12} />
+              <span>GEOSPATIAL INTELLIGENCE</span>
+            </div>
+
+            <h3 style={{ fontSize: 22, fontWeight: 800, color: '#FFFFFF', margin: '0 0 12px' }}>
+              8-Zone BBMP Hazard Heatmap
+            </h3>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+              Interactive SVG vector map of Bengaluru's 8 administrative zones. Inspect Bellandur, Varthur,
+              and Hebbal lake buffer encroachment breaches and known Rajakaluve bottlenecks.
+            </p>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleGatedNav('/risk-map', '8-Zone BBMP Hazard Heatmap')}
+              className="btn-glass"
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              Explore BBMP Zones <ChevronRight size={15} />
+            </motion.button>
+          </div>
+
+          {/* Bento 4: Academic Literature Archive (Spans 6 cols) */}
+          <div className="bento-card" style={{ gridColumn: 'span 6' }}>
+            <div className="status-pill" style={{ background: 'rgba(163,230,53,0.15)', borderColor: '#A3E635', color: '#D9F99D', marginBottom: 20 }}>
+              <BookOpen size={12} />
+              <span>PEER-REVIEWED CITATIONS</span>
+            </div>
+
+            <h3 style={{ fontSize: 22, fontWeight: 800, color: '#FFFFFF', margin: '0 0 12px' }}>
+              IISc & CAG Research Library
+            </h3>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+              Built upon empirical findings from IISc Technical Report 123, CAG Audit Report No. 2 of 2021,
+              and KSNDMC disaster telemetric evaluations. Equipped with BibTeX citations for academic defense.
+            </p>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleGatedNav('/climate', 'Climate & Research Hub')}
+              className="btn-glass"
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              Open Climate & Research Hub <ChevronRight size={15} />
+            </motion.button>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Historical Disaster Log Bento ─────────────────────────────── */}
+      <section className="section-optimized" style={{ maxWidth: 1240, margin: '80px auto', padding: '0 24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32, flexWrap: 'wrap', gap: 16 }}>
+          <div>
+            <div className="status-pill" style={{ marginBottom: 12 }}>
+              <span>HISTORICAL FORENSICS</span>
+            </div>
+            <h2 style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+              Recent Disasters in Bengaluru
+            </h2>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            onClick={() => handleGatedNav('/risk-map', 'Geospatial Hazard Risk Map')}
+            className="btn-glass"
+            style={{ padding: '8px 18px', fontSize: 13 }}
+          >
+            Explore Risk Map <ArrowRight size={14} />
+          </motion.button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
+          {HISTORICAL_DISASTERS.slice(0, 3).map((d) => (
+            <div key={d.event} className="bento-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <span style={{ fontSize: 28 }}>{d.type === 'Flood' ? '🌊' : d.type === 'Cloudbursts' ? '⛈️' : '🔥'}</span>
+                <span style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: 20,
+                  background: 'rgba(239,68,68,0.15)',
+                  color: '#F87171',
+                  border: '1px solid rgba(239,68,68,0.3)',
+                }}>
+                  {d.month} {d.year}
+                </span>
+              </div>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#FFFFFF', margin: '0 0 10px' }}>{d.event}</h3>
+              <p style={{ color: 'var(--tx-muted)', fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
+                {d.description}
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, borderTop: '1px solid var(--border-glass)', paddingTop: 14 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--tx-muted)' }}>Casualties</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>{d.deaths}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--tx-muted)' }}>Displaced</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>{d.displaced.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--tx-muted)' }}>Est. Loss</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#34D399' }}>₹{d.estimatedLoss} Cr</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── Ready to Prepare Banner ────────────────────────────────────── */}
+      <section className="section-optimized" style={{ maxWidth: 1240, margin: '80px auto', padding: '0 24px' }}>
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(6,182,212,0.05) 100%)',
+          border: '1px solid rgba(16,185,129,0.35)',
+          borderRadius: 28,
+          padding: '60px 40px',
+          textAlign: 'center',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.6), 0 0 40px rgba(16,185,129,0.15)',
+        }}>
+          <h2 style={{ fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 900, color: '#FFFFFF', margin: '0 0 16px' }}>
+            Empower Bengaluru with Science & Code
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 17, maxWidth: 640, margin: '0 auto 36px' }}>
+            Step into the live platform to monitor ward rainfall, track flood-prone underpasses, and access localized family disaster preparedness plans.
+          </p>
+          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              className="btn-shiny"
+              onClick={() => handleGatedNav('/dashboard', 'Live SafeGround Platform')}
+              style={{ padding: '16px 36px', fontSize: 16 }}
+            >
+              Launch Live SafeGround Platform <ArrowRight size={18} />
+            </motion.button>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Modern Footer ──────────────────────────────────────────────── */}
+      <footer style={{ borderTop: '1px solid var(--border-glass)', padding: '40px 24px', background: 'rgba(6,11,8,0.95)' }}>
+        <div style={{ maxWidth: 1240, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Shield size={18} color="#030604" />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>SAFEGROUND BENGALURU</div>
+              <div style={{ fontSize: 12, color: 'var(--tx-muted)' }}>Research Backed • KSNDMC & BBMP Open Telemetry</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 24, fontSize: 13, color: 'var(--tx-muted)' }}>
+            <span onClick={() => handleGatedNav('/dashboard', 'Dashboard')} style={{ cursor: 'pointer', transition: 'color 0.2s' }}>Dashboard</span>
+            <span onClick={() => handleGatedNav('/yelahanka', 'Yelahanka Hub')} style={{ cursor: 'pointer', transition: 'color 0.2s' }}>Yelahanka Hub</span>
+            <span onClick={() => handleGatedNav('/risk-map', 'Risk Map')} style={{ cursor: 'pointer', transition: 'color 0.2s' }}>Risk Map</span>
+            <span onClick={() => handleGatedNav('/preparedness', 'Preparedness')} style={{ cursor: 'pointer', transition: 'color 0.2s' }}>Preparedness</span>
+            <span onClick={() => handleGatedNav('/climate', 'Climate')} style={{ cursor: 'pointer', transition: 'color 0.2s' }}>Climate</span>
+          </div>
+        </div>
+      </footer>
+
+      {/* ─── Auth Guard Modal for Unauthenticated Navigation ────────────── */}
+      <AuthGateModal
+        isOpen={gateState.isOpen}
+        onClose={() => setGateState(prev => ({ ...prev, isOpen: false }))}
+        targetPath={gateState.targetPath}
+        featureTitle={gateState.featureTitle}
+      />
     </div>
-  )
-}
-
-// Simple animated number
-function AnimatedNumber({ target, suffix }: { target: number; suffix: string }) {
-  const isFloat = !Number.isInteger(target)
-  return (
-    <motion.span
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.1 }}
-    >
-      <Counter target={target} isFloat={isFloat} />{suffix}
-    </motion.span>
-  )
-}
-
-function Counter({ target, isFloat }: { target: number; isFloat: boolean }) {
-  const ref = useRef<HTMLSpanElement>(null)
-  const inView = useInView(ref, { once: true })
-
-  return (
-    <span ref={ref}>
-      <motion.span
-        initial={{ opacity: 0 }}
-        animate={inView ? { opacity: 1 } : {}}
-        onAnimationComplete={() => {
-          if (!ref.current || !inView) return
-          let frame = 0
-          const frames = 80
-          const timer = setInterval(() => {
-            frame++
-            const progress = frame / frames
-            const eased = 1 - Math.pow(1 - progress, 3)
-            const val = target * eased
-            if (ref.current) ref.current.textContent = isFloat ? val.toFixed(1) : Math.floor(val).toLocaleString()
-            if (frame >= frames) clearInterval(timer)
-          }, 20)
-        }}
-      >
-        {isFloat ? target.toFixed(1) : target.toLocaleString()}
-      </motion.span>
-    </span>
   )
 }

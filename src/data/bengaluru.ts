@@ -125,21 +125,21 @@ export const BENGALURU_ZONES: BengaluruZone[] = [
   {
     id: 'yelahanka',
     name: 'Yelahanka',
-    ward: 'Yelahanka',
+    ward: 'Yelahanka Satellite Town / Chowdeshwari',
     taluk: 'Bangalore North',
     lat: 13.1004,
     lng: 77.5963,
-    floodRisk: 38,
+    floodRisk: 86,
     heatRisk: 55,
     landslideRisk: 5,
     earthquakeRisk: 20,
-    lakeEncroachment: 45,
-    drainageCapacity: 11,
-    population: 350000,
+    lakeEncroachment: 74,
+    drainageCapacity: 7,
+    population: 420000,
     area: 42,
-    nearbyLakes: ['Yelahanka Lake', 'Doddaballapura Lake'],
-    knownFloodProne: false,
-    hwm: 'Flash flooding near NH44 underpass 2023',
+    nearbyLakes: ['Yelahanka Amanikere', 'Doddabommasandra Lake', 'Allalasandra Lake', 'Attur Lake'],
+    knownFloodProne: true,
+    hwm: 'Oct 2024 – 157.5mm cloudburst, Kendriya Vihar submerged under 6ft water, Amanikere spillway breach',
   },
   {
     id: 'rajajinagar',
@@ -197,6 +197,19 @@ export interface HistoricalDisaster {
 }
 
 export const HISTORICAL_DISASTERS: HistoricalDisaster[] = [
+  {
+    year: 2024,
+    month: 'October',
+    event: 'Yelahanka Megaflood & Kendriya Vihar Inundation',
+    type: 'Cloudbursts',
+    deaths: 5,
+    injured: 38,
+    displaced: 12000,
+    peakRainfall: 157.5,
+    estimatedLoss: 380,
+    affectedZones: ['yelahanka', 'chowdeshwari', 'attur', 'kogilu'],
+    description: '157.5mm cloudburst deposited in 4 hours over Chowdeshwari Nagar (TRG-YLK-01). Amanikere and Doddabommasandra lakes overflowed, breaching secondary rajakaluve retaining walls. Kendriya Vihar residential complex submerged under 1.8m (6 ft) of floodwater, trapping 5,000+ residents. 24 NDRF/SDRF motorized boats and 18 tractors deployed for rescue.',
+  },
   {
     year: 2022,
     month: 'September',
@@ -268,6 +281,8 @@ export const BENGALURU_CLIMATE = [
 
 // ─── Lake Status Data ─────────────────────────────────────
 export const BENGALURU_LAKES = [
+  { name: 'Yelahanka Amanikere', area: 320, currentCapacity: 89, encroachment: 74, status: 'Critical' as const, zone: 'Yelahanka' },
+  { name: 'Doddabommasandra Lake', area: 142, currentCapacity: 84, encroachment: 68, status: 'High' as const, zone: 'Yelahanka North' },
   { name: 'Bellandur Lake', area: 361, currentCapacity: 78, encroachment: 84, status: 'Critical' as const, zone: 'Whitefield' },
   { name: 'Varthur Lake', area: 218, currentCapacity: 82, encroachment: 71, status: 'Critical' as const, zone: 'Whitefield East' },
   { name: 'Hebbal Lake', area: 68, currentCapacity: 45, encroachment: 32, status: 'Moderate' as const, zone: 'Yelahanka' },
@@ -280,6 +295,8 @@ export const BENGALURU_LAKES = [
 
 // ─── BBMP Flood-Prone Spots ────────────────────────────────
 export const FLOOD_PRONE_SPOTS = [
+  'Kendriya Vihar & Kogilu Cross – Yelahanka',
+  'Chowdeshwari Nagar Main Drainage Canal – Yelahanka',
   'ITPL Main Road Underpass – Whitefield',
   'Marathahalli Bridge – ORR',
   'Koramangala 5th Block Junction',
