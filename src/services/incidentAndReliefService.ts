@@ -96,6 +96,32 @@ const DAMAGE_REPORTS_KEY = 'safeground_damage_reports'
 const ADVISORIES_KEY = 'safeground_official_advisories'
 const DONATIONS_KEY = 'safeground_donations_db'
 
+// Monotonic Sequence Storage Keys
+export const SEQ_DONATION_KEY = 'safeground_seq_donation'
+export const SEQ_TAX_TOKEN_KEY = 'safeground_seq_tax_token'
+export const SEQ_DAMAGE_REPORT_KEY = 'safeground_seq_damage_report'
+export const SEQ_ADVISORY_KEY = 'safeground_seq_advisory'
+
+/**
+ * Returns a strictly monotonic, zero-padded sequence string (e.g. '0001', '0002')
+ */
+export function getNextMonotonicSeq(seqKey: string, digits = 4): string {
+  if (typeof window === 'undefined') return '0001'
+  let current = 0
+  try {
+    const raw = localStorage.getItem(seqKey)
+    current = raw ? parseInt(raw, 10) : 0
+    if (isNaN(current)) current = 0
+  } catch {
+    current = 0
+  }
+  const next = current + 1
+  try {
+    localStorage.setItem(seqKey, next.toString())
+  } catch {}
+  return next.toString().padStart(digits, '0')
+}
+
 // Initial Seed Data (Empty and ready to be filled dynamically)
 const SEED_DAMAGE_REPORTS: CitizenDamageReport[] = []
 const SEED_ADVISORIES: AuthorityAdvisory[] = []
@@ -147,11 +173,11 @@ export function getAllDamageReports(): CitizenDamageReport[] {
 export function submitDamageReport(data: Omit<CitizenDamageReport, 'id' | 'status' | 'reportedAt' | 'verifiedBy' | 'publishedAdvisoryId'>): CitizenDamageReport {
   const all = getAllDamageReports()
   const now = new Date().toISOString()
-  const randomNum = Math.floor(100 + Math.random() * 900)
+  const seq = getNextMonotonicSeq(SEQ_DAMAGE_REPORT_KEY, 4)
 
   const newReport: CitizenDamageReport = {
     ...data,
-    id: `REP-BLR-${randomNum}`,
+    id: `REP-BLR-${seq}`,
     status: 'PENDING_REVIEW',
     reportedAt: now,
     verifiedBy: null,
@@ -293,11 +319,11 @@ export function publishAdvisory(
   associatedReportIds?: string[]
 ): AuthorityAdvisory {
   const all = getAllAdvisories()
-  const randomNum = Math.floor(10 + Math.random() * 90)
+  const seq = getNextMonotonicSeq(SEQ_ADVISORY_KEY, 4)
   const now = new Date().toISOString()
 
   const newAdv: AuthorityAdvisory = {
-    id: `ADV-BLR-${randomNum}`,
+    id: `ADV-BLR-${seq}`,
     title,
     zone,
     severity,
@@ -466,11 +492,12 @@ export function submitDonation(data: {
 
   const all = getAllDonations()
   const now = new Date().toISOString()
-  const randomNum = Math.floor(1000 + Math.random() * 9000)
+  const donSeq = getNextMonotonicSeq(SEQ_DONATION_KEY, 4)
+  const taxSeq = getNextMonotonicSeq(SEQ_TAX_TOKEN_KEY, 4)
 
   const newDonation: DonationRecord = {
-    id: `DON-${new Date().getFullYear()}-BLR-${randomNum}`,
-    userId: data.userId || `donor-${Date.now()}`,
+    id: `DON-${new Date().getFullYear()}-BLR-${donSeq}`,
+    userId: data.userId || `donor-${donSeq}`,
     donorName: data.donorName.trim(),
     donorEmail: data.donorEmail.trim().toLowerCase(),
     donorPhone: data.donorPhone?.trim() || '+91 98450 00000',
@@ -478,7 +505,7 @@ export function submitDonation(data: {
     targetReliefCause: data.targetReliefCause,
     paymentMethod: data.paymentMethod || 'UPI / NetBanking',
     timestamp: now,
-    taxExemptionToken: `KAR-80G-BLR-${Math.floor(10000 + Math.random() * 90000)}`,
+    taxExemptionToken: `KA-80G-${taxSeq}`,
   }
 
   const updated = [newDonation, ...all]
@@ -538,6 +565,10 @@ export function clearAllIncidentAndReliefData() {
     localStorage.removeItem(DAMAGE_REPORTS_KEY)
     localStorage.removeItem(ADVISORIES_KEY)
     localStorage.removeItem(DONATIONS_KEY)
+    localStorage.removeItem(SEQ_DONATION_KEY)
+    localStorage.removeItem(SEQ_TAX_TOKEN_KEY)
+    localStorage.removeItem(SEQ_DAMAGE_REPORT_KEY)
+    localStorage.removeItem(SEQ_ADVISORY_KEY)
   }
   notifyReports()
   notifyAdvisories()

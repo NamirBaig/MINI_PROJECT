@@ -17,16 +17,21 @@ import YelahankaHub from './pages/YelahankaHub'
 import Auth from './pages/Auth'
 import FloatingReliefWidget from './components/FloatingReliefWidget'
 
-// One-time automatic clean-slate purge: resets legacy dummy records to empty
+// One-time automatic clean-slate purge: resets legacy records to null/empty and monotonic counters to 0
 if (typeof window !== 'undefined') {
   try {
-    const PURGE_KEY = 'safeground_clean_slate_v4'
+    const PURGE_KEY = 'safeground_clean_slate_monotonic_v5'
     if (!localStorage.getItem(PURGE_KEY)) {
       localStorage.removeItem('safeground_requests_db')
       localStorage.removeItem('safeground_known_requester_emails')
       localStorage.removeItem('safeground_damage_reports')
       localStorage.removeItem('safeground_official_advisories')
       localStorage.removeItem('safeground_donations_db')
+      localStorage.removeItem('safeground_seq_request')
+      localStorage.removeItem('safeground_seq_donation')
+      localStorage.removeItem('safeground_seq_tax_token')
+      localStorage.removeItem('safeground_seq_damage_report')
+      localStorage.removeItem('safeground_seq_advisory')
       localStorage.setItem(PURGE_KEY, 'true')
     }
   } catch (e) {

@@ -62,6 +62,27 @@ export interface UserRecord {
 const REQUESTS_STORAGE_KEY = 'safeground_requests_db'
 const USERS_STORAGE_KEY = 'safeground_users_db'
 const KNOWN_EMAILS_KEY = 'safeground_known_requester_emails'
+export const SEQ_REQUEST_KEY = 'safeground_seq_request'
+
+/**
+ * Returns a strictly monotonic, zero-padded sequence string (e.g. '0001', '0002') for requests
+ */
+export function getNextRequestSeq(digits = 4): string {
+  if (typeof window === 'undefined') return '0001'
+  let current = 0
+  try {
+    const raw = localStorage.getItem(SEQ_REQUEST_KEY)
+    current = raw ? parseInt(raw, 10) : 0
+    if (isNaN(current)) current = 0
+  } catch {
+    current = 0
+  }
+  const next = current + 1
+  try {
+    localStorage.setItem(SEQ_REQUEST_KEY, next.toString())
+  } catch {}
+  return next.toString().padStart(digits, '0')
+}
 
 // Initial seed requests (Empty and ready to be filled by live citizen requests)
 const SEED_REQUESTS: EmergencyRequest[] = []
@@ -98,8 +119,8 @@ export function registerKnownEmail(email: string) {
     const clean = email.trim().toLowerCase()
     if (!set.includes(clean)) {
       set.push(clean)
-      localStorage.setItem(KNOWN_EMAILS_KEY, JSON.stringify(set))
     }
+    localStorage.setItem(KNOWN_EMAILS_KEY, JSON.stringify(set))
   } catch {}
 }
 
@@ -139,12 +160,13 @@ export function getAllRequests(): EmergencyRequest[] {
 }
 
 /**
- * Clear all emergency requests and reset to empty
+ * Clear all emergency requests and reset monotonic counter to 0
  */
 export function clearAllEmergencyRequests() {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(REQUESTS_STORAGE_KEY)
     localStorage.removeItem(KNOWN_EMAILS_KEY)
+    localStorage.removeItem(SEQ_REQUEST_KEY)
   }
   notifyListeners()
 }
@@ -194,12 +216,12 @@ export function createEmergencyRequest(
   data: Omit<EmergencyRequest, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'reviewedBy' | 'reviewedAt' | 'actionNotes' | 'allocatedHospital' | 'hospitalBedNumber' | 'dispatchVehicle' | 'driverName' | 'driverPhone' | 'dispatchEta' | 'redirectShelter' | 'emailNotificationSent' | 'emailNotificationTimestamp' | 'auditTrail'>
 ): EmergencyRequest {
   const all = getAllRequests()
-  const randomNum = Math.floor(1000 + Math.random() * 9000)
+  const seq = getNextRequestSeq(4)
   const now = new Date().toISOString()
   
   const newReq: EmergencyRequest = {
     ...data,
-    id: `REQ-${new Date().getFullYear()}-BLR-${randomNum}`,
+    id: `REQ-${new Date().getFullYear()}-BLR-${seq}`,
     status: 'PENDING',
     allocatedHospital: null,
     hospitalBedNumber: null,
