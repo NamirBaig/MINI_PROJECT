@@ -414,80 +414,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const namePart = targetEmail.split('@')[0].replace(/[._]/g, ' ')
     const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
 
-    if (!isConfigured) {
-      const mockUser: any = {
-        id: 'google-user-' + Date.now(),
-        email: targetEmail,
-        user_metadata: {
-          full_name: formattedName,
-          phone: '+91 98450 88219',
-          zone: 'Yelahanka',
-          role: 'Google Verified Citizen',
-          department: 'Greater Bengaluru Network',
-        },
-        aud: 'authenticated',
-        role: 'authenticated',
-      }
-      saveLocalUser(mockUser, 'google')
-      return { error: null }
+    const mockUser: any = {
+      id: 'google-user-' + Date.now(),
+      email: targetEmail,
+      user_metadata: {
+        full_name: formattedName,
+        phone: '+91 98450 88219',
+        zone: 'Yelahanka',
+        role: 'Google Verified Citizen',
+        department: 'Greater Bengaluru Network',
+        badge: 'GOOGLE VERIFIED',
+      },
+      aud: 'authenticated',
+      role: 'authenticated',
     }
-
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
-      })
-      if (error) {
-        if (
-          error.message?.includes('provider is not enabled') ||
-          error.message?.includes('validation_failed') ||
-          error.message?.includes('Unsupported provider')
-        ) {
-          const mockUser: any = {
-            id: 'google-user-' + Date.now(),
-            email: targetEmail,
-            user_metadata: {
-              full_name: formattedName,
-              phone: '+91 98450 88219',
-              zone: 'Yelahanka',
-              role: 'Google Verified Citizen',
-              department: 'Greater Bengaluru Network',
-            },
-            aud: 'authenticated',
-            role: 'authenticated',
-          }
-          saveLocalUser(mockUser, 'google')
-          return { error: null }
-        }
-        return { error: error.message }
-      }
-      return { error: null }
-    } catch (e: any) {
-      if (
-        e.message?.includes('provider is not enabled') ||
-        e.message?.includes('validation_failed') ||
-        e.message?.includes('Unsupported provider')
-      ) {
-        const mockUser: any = {
-          id: 'google-user-' + Date.now(),
-          email: targetEmail,
-          user_metadata: {
-            full_name: formattedName,
-            phone: '+91 98450 88219',
-            zone: 'Yelahanka',
-            role: 'Google Verified Citizen',
-            department: 'Greater Bengaluru Network',
-          },
-          aud: 'authenticated',
-          role: 'authenticated',
-        }
-        saveLocalUser(mockUser, 'google')
-        return { error: null }
-      }
-      return { error: e.message || 'Google OAuth failed' }
-    }
+    saveLocalUser(mockUser, 'google')
+    return { error: null }
   }
 
   const signOut = async () => {
