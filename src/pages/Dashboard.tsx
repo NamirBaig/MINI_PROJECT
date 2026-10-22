@@ -23,6 +23,9 @@ import {
   getAllAdvisories,
   subscribeToAdvisories,
   publishAdvisory,
+  getTotalReliefFunds,
+  subscribeToDonations,
+  pullCloudReliefData,
   type AuthorityAdvisory
 } from '../services/incidentAndReliefService'
 
@@ -231,12 +234,22 @@ export default function Dashboard({ weatherData }: DashboardProps) {
   const [donationModalOpen, setDonationModalOpen] = useState(false)
   const [liveAdvisories, setLiveAdvisories] = useState<AuthorityAdvisory[]>([])
 
+  const [reliefTotals, setReliefTotals] = useState(() => getTotalReliefFunds())
+
   useEffect(() => {
     setLiveAdvisories(getAllAdvisories())
+    setReliefTotals(getTotalReliefFunds())
+
     const unsubscribe = subscribeToAdvisories(() => {
       setLiveAdvisories(getAllAdvisories())
     })
-    return () => unsubscribe()
+    const unsubDon = subscribeToDonations(() => {
+      setReliefTotals(getTotalReliefFunds())
+    })
+    return () => {
+      unsubscribe()
+      unsubDon()
+    }
   }, [])
 
   const hour = new Date().getHours()
@@ -918,6 +931,21 @@ export default function Dashboard({ weatherData }: DashboardProps) {
               </div>
               <div style={{ marginTop: 10, fontSize: 12, color: 'var(--tx-dim)' }}>
                 500 GPM submersible units pumping underpasses & 12 shelters active
+              </div>
+            </div>
+
+            <div className="bento-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx-muted)', textTransform: 'uppercase' }}>Disaster Relief Fund</span>
+                <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 12, color: '#EC4899', background: 'rgba(236, 72, 153, 0.15)', border: '1px solid rgba(236, 72, 153, 0.3)' }}>
+                  80G ACTIVE
+                </span>
+              </div>
+              <div style={{ fontSize: 34, fontWeight: 800, color: '#34D399', lineHeight: 1 }}>
+                ₹{reliefTotals.totalAmount >= 100000 ? `${(reliefTotals.totalAmount / 100000).toFixed(2)}L` : reliefTotals.totalAmount.toLocaleString('en-IN')}
+              </div>
+              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--tx-dim)' }}>
+                {reliefTotals.totalTransactions} verified citizen donations (Total: ₹{reliefTotals.totalAmount.toLocaleString('en-IN')})
               </div>
             </div>
           </>

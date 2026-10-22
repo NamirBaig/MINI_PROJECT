@@ -117,6 +117,52 @@ export function getNextMonotonicSeq(seqKey: string, digits = 4): string {
   } catch {
     current = 0
   }
+
+  // Ensure sequence is strictly greater than all existing items in storage
+  if (seqKey === SEQ_DONATION_KEY || seqKey === SEQ_TAX_TOKEN_KEY) {
+    try {
+      const rawDonations = localStorage.getItem(DONATIONS_KEY)
+      if (rawDonations) {
+        const list: DonationRecord[] = JSON.parse(rawDonations)
+        list.forEach(d => {
+          const match = (seqKey === SEQ_DONATION_KEY ? d.id : d.taxExemptionToken).match(/(\d+)$/)
+          if (match) {
+            const num = parseInt(match[1], 10)
+            if (!isNaN(num) && num < 9000 && num > current) current = num
+          }
+        })
+      }
+    } catch {}
+  } else if (seqKey === SEQ_DAMAGE_REPORT_KEY) {
+    try {
+      const rawReports = localStorage.getItem(DAMAGE_REPORTS_KEY)
+      if (rawReports) {
+        const list: CitizenDamageReport[] = JSON.parse(rawReports)
+        list.forEach(r => {
+          const match = r.id.match(/(\d+)$/)
+          if (match) {
+            const num = parseInt(match[1], 10)
+            if (!isNaN(num) && num < 9000 && num > current) current = num
+          }
+        })
+      }
+    } catch {}
+  } else if (seqKey === SEQ_ADVISORY_KEY) {
+    try {
+      const rawAdvs = localStorage.getItem(ADVISORIES_KEY)
+      if (rawAdvs) {
+        const list: AuthorityAdvisory[] = JSON.parse(rawAdvs)
+        list.forEach(a => {
+          const match = a.id.match(/(\d+)$/)
+          if (match) {
+            const num = parseInt(match[1], 10)
+            if (!isNaN(num) && num < 9000 && num > current) current = num
+          }
+        })
+      }
+    } catch {}
+  }
+
   const next = current + 1
   try {
     localStorage.setItem(seqKey, next.toString())
@@ -798,8 +844,24 @@ export function submitDonation(data: {
     localStorage.setItem(DONATIONS_KEY, JSON.stringify(updated))
   }
   try {
-    supabase.from('relief_donations').upsert(toSupabaseDonation(newDonation)).then(() => {})
-  } catch {}
+    supabase
+      .from('relief_donations')
+      .insert(toSupabaseDonation(newDonation))
+      .then(({ error }) => {
+        if (error) {
+          console.warn('Supabase donation insert error:', error.message)
+          if (error.code === '23505') {
+            const fallback = {
+              ...toSupabaseDonation(newDonation),
+              id: `${newDonation.id}-${Date.now().toString().slice(-4)}`,
+            }
+            supabase.from('relief_donations').insert(fallback).then(() => {})
+          }
+        }
+      })
+  } catch (err) {
+    console.warn('Supabase donation trigger error:', err)
+  }
 
   notifyDonations()
   return newDonation

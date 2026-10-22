@@ -1,14 +1,20 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ShieldCheck, Mail, Lock, User, Eye, EyeOff, AlertCircle,
   ArrowRight, Sparkles, CheckCircle2, Radio, HardHat, Building2,
-  ChevronRight, Compass, Phone, MapPin
+  ChevronRight, Compass, Phone, MapPin, Heart, Droplets
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../context/ToastContext'
 import { playClickSound, playSuccessSound } from '../utils/audioFeedback'
+import {
+  getTotalReliefFunds,
+  getAllDonations,
+  subscribeToDonations,
+  pullCloudReliefData
+} from '../services/incidentAndReliefService'
 
 type Tab = 'login' | 'signup'
 
@@ -37,6 +43,21 @@ export default function Auth() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+
+  const [reliefTotals, setReliefTotals] = useState(() => getTotalReliefFunds())
+  const [latestDonations, setLatestDonations] = useState(() => getAllDonations())
+
+  useEffect(() => {
+    pullCloudReliefData().then(() => {
+      setReliefTotals(getTotalReliefFunds())
+      setLatestDonations(getAllDonations())
+    })
+    const unsub = subscribeToDonations(() => {
+      setReliefTotals(getTotalReliefFunds())
+      setLatestDonations(getAllDonations())
+    })
+    return () => unsub()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -291,6 +312,42 @@ export default function Auth() {
                 </div>
               </div>
             </div>
+
+            {/* Live Supabase Cloud Relief Telemetry Widget */}
+            <div style={{
+              marginTop: 18,
+              padding: '16px 18px',
+              borderRadius: 14,
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(5, 150, 105, 0.06) 100%)',
+              border: '1.5px solid rgba(52, 211, 153, 0.4)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#34D399', textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 10px #10B981', display: 'inline-block' }} />
+                  Live Relief Fund (Cloud Sync)
+                </span>
+                <span style={{ fontSize: 11, color: '#A7F3D0', fontWeight: 700 }}>80G Certified</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+                <span style={{ fontSize: 30, fontWeight: 900, color: '#FFFFFF', letterSpacing: -0.5 }}>
+                  ₹{reliefTotals.totalAmount.toLocaleString('en-IN')}
+                </span>
+                <span style={{ fontSize: 12, color: '#34D399', fontWeight: 700 }}>
+                  ({reliefTotals.totalTransactions} contributions)
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.75)' }}>
+                {latestDonations.length > 0 ? (
+                  <>
+                    Recent: <strong style={{ color: '#FFFFFF' }}>{latestDonations[0].donorName}</strong> contributed{' '}
+                    <strong style={{ color: '#34D399' }}>₹{latestDonations[0].amount.toLocaleString('en-IN')}</strong> ({latestDonations[0].taxExemptionToken})
+                  </>
+                ) : (
+                  'Real-time cloud database connected to Supabase'
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -310,7 +367,7 @@ export default function Auth() {
       }}>
         <div style={{ width: '100%', maxWidth: 420 }}>
           {/* Form Header */}
-          <div style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 20 }}>
             <h2 style={{ fontSize: 26, fontWeight: 700, margin: '0 0 6px', color: 'var(--tx)' }}>
               {tab === 'login' ? 'Sign in to SafeGround' : 'Create an Account'}
             </h2>
@@ -320,6 +377,29 @@ export default function Auth() {
                 : 'Join the disaster resilience network for Greater Bengaluru'}
             </p>
           </div>
+
+          {/* Live Cloud Sync Banner */}
+          {reliefTotals.totalAmount > 0 && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 12px',
+              borderRadius: 10,
+              background: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              marginBottom: 16,
+              fontSize: 12,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#34D399', fontWeight: 700 }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
+                <span>Live Relief Fund: ₹{reliefTotals.totalAmount.toLocaleString('en-IN')}</span>
+              </div>
+              <span style={{ color: 'var(--tx-muted)', fontSize: 11 }}>
+                {reliefTotals.totalTransactions} verified donations
+              </span>
+            </div>
+          )}
 
           {/* Tab Selector */}
           <div style={{
