@@ -18,7 +18,6 @@ import EmergencyRequestModal from '../components/EmergencyRequestModal'
 import CitizenRequestTracker from '../components/CitizenRequestTracker'
 import AuthorityRequestTriage from '../components/AuthorityRequestTriage'
 import DisasterDonationModal from '../components/DisasterDonationModal'
-import PublicAdvisoryBroadcastBanner from '../components/PublicAdvisoryBroadcastBanner'
 import {
   submitDamageReport,
   getAllAdvisories,
@@ -294,7 +293,7 @@ export default function Dashboard({ weatherData }: DashboardProps) {
       ]
     : ROLE_ALERTS.citizen
 
-  const alerts = [...mappedOfficialAdvisories, ...baseAlerts]
+  const alerts = isAuthority ? baseAlerts : [...mappedOfficialAdvisories, ...baseAlerts]
 
   const handleAcknowledgeAlert = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -379,16 +378,6 @@ export default function Dashboard({ weatherData }: DashboardProps) {
     playSuccessSound()
     toast.success('Lake Sluice Pre-Release Approved', 'Authorized 25% discharge rate through downstream stormwater buffer')
     setSluiceModalOpen(false)
-  }
-
-  const handleStressTestSpike = () => {
-    playAlertSound()
-    toast.alert('Cloudburst Surge Simulated (+50mm/h)', 'Triggered automated AWS alarms across Yelahanka & Mahadevapura wards')
-  }
-
-  const handleRadarCalibrate = () => {
-    playSuccessSound()
-    toast.success('Doppler Radar Network Calibrated', 'Ground AWS stations synced with 128 RPM BIAL Doppler radar')
   }
 
   // BBMP Actions
@@ -513,9 +502,6 @@ export default function Dashboard({ weatherData }: DashboardProps) {
           </motion.button>
         </div>
       </div>
-
-      {/* ─── LIVE OFFICIAL GOVERNMENT PUBLIC ADVISORY BROADCAST ─── */}
-      <PublicAdvisoryBroadcastBanner />
 
       {/* ─── ROLE-SPECIFIC INTERACTIVE OPERATIONS COCKPIT ──────── */}
       <div>
@@ -764,44 +750,6 @@ export default function Dashboard({ weatherData }: DashboardProps) {
               <div>
                 <div style={{ fontSize: 13.5, fontWeight: 800, color: '#FBBF24' }}>Order Traffic Barricade</div>
                 <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Divert flooded traffic lines</div>
-              </div>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleRadarCalibrate}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.05) 100%)',
-                border: '1px solid rgba(16, 185, 129, 0.35)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
-              }}
-            >
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(16, 185, 129, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#34D399', flexShrink: 0 }}>
-                <Activity size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#34D399' }}>Calibrate Doppler Radar</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Sync 842 AWS stations</div>
-              </div>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleStressTestSpike}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
-                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.05) 100%)',
-                border: '1px solid rgba(245, 158, 11, 0.35)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
-              }}
-            >
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(245, 158, 11, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FBBF24', flexShrink: 0 }}>
-                <Zap size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#FBBF24' }}>Stress-Test Cloudburst</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Simulate +50mm hydro surge</div>
               </div>
             </motion.button>
           </div>

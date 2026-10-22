@@ -8,7 +8,6 @@ import { useAuth } from '../hooks/useAuth'
 import { playClickSound } from '../utils/audioFeedback'
 import type { WeatherData } from '../hooks/useWeather'
 import { AnimatedWeatherIcon } from './AnimatedWeatherBadge'
-import { getAllAdvisories, subscribeToAdvisories, type AuthorityAdvisory } from '../services/incidentAndReliefService'
 
 interface ExecutiveTopBarProps {
   user: any
@@ -20,15 +19,6 @@ export default function ExecutiveTopBar({ user, onSignOut, weather }: ExecutiveT
   const { currentRole } = useAuth()
   const isAuthority = currentRole !== 'citizen'
   const [timeStr, setTimeStr] = useState<string>('')
-  const [advisories, setAdvisories] = useState<AuthorityAdvisory[]>([])
-
-  useEffect(() => {
-    setAdvisories(getAllAdvisories())
-    const unsub = subscribeToAdvisories(() => {
-      setAdvisories(getAllAdvisories())
-    })
-    return () => unsub()
-  }, [])
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Resident'
   const roleTitle = user?.user_metadata?.role || 'Verified Resident'
@@ -56,43 +46,23 @@ export default function ExecutiveTopBar({ user, onSignOut, weather }: ExecutiveT
     >
       {/* ─── Left: Defense Grid Telemetry Heartbeat ────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        {/* Status LED / Active Advisory Indicator */}
-        {advisories.length > 0 ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: '#EF4444',
-                boxShadow: '0 0 10px #EF4444, 0 0 20px rgba(239, 68, 68, 0.6)',
-                display: 'inline-block',
-                animation: 'pulse 1.2s infinite ease-in-out',
-              }}
-            />
-            <span style={{ fontWeight: 800, letterSpacing: '0.04em', color: '#EF4444', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Radio size={12} color="#EF4444" />
-              🚨 {advisories.length} ACTIVE GOVT ADVISORY: {advisories[0].title.slice(0, 36)}...
-            </span>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: '#10B981',
-                boxShadow: '0 0 10px #10B981, 0 0 20px rgba(16, 185, 129, 0.5)',
-                display: 'inline-block',
-                animation: 'pulse 2s infinite ease-in-out',
-              }}
-            />
-            <span style={{ fontWeight: 800, letterSpacing: '0.04em', color: '#10B981' }}>
-              STATUS: NORMAL (ALL CLEAR)
-            </span>
-          </div>
-        )}
+        {/* Status LED */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: '#10B981',
+              boxShadow: '0 0 10px #10B981, 0 0 20px rgba(16, 185, 129, 0.5)',
+              display: 'inline-block',
+              animation: 'pulse 2s infinite ease-in-out',
+            }}
+          />
+          <span style={{ fontWeight: 800, letterSpacing: '0.04em', color: '#10B981' }}>
+            STATUS: NORMAL (ALL CLEAR)
+          </span>
+        </div>
 
         <span style={{ color: 'rgba(255, 255, 255, 0.15)' }}>|</span>
 
