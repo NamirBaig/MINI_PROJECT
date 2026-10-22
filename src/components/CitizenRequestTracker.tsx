@@ -35,11 +35,6 @@ export default function CitizenRequestTracker({ onRequestClick }: CitizenRequest
   // Official Dispatch Email Memo Modal
   const [emailMemoRequest, setEmailMemoRequest] = useState<EmergencyRequest | null>(null)
 
-  // Driver Call Modal
-  const [callDriverRequest, setCallDriverRequest] = useState<EmergencyRequest | null>(null)
-  const [callActive, setCallActive] = useState(false)
-  const [callDuration, setCallDuration] = useState(0)
-
   // Discovered emails across sessions
   const [knownEmails, setKnownEmails] = useState<string[]>([])
 
@@ -97,21 +92,6 @@ export default function CitizenRequestTracker({ onRequestClick }: CitizenRequest
     return () => unsubscribe()
   }, [user, selectedEmailFilter])
 
-  // Call duration timer
-  useEffect(() => {
-    let interval: any = null
-    if (callActive) {
-      interval = setInterval(() => {
-        setCallDuration(prev => prev + 1)
-      }, 1000)
-    } else {
-      setCallDuration(0)
-    }
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [callActive])
-
   const handleOpenModal = () => {
     playClickSound()
     if (onRequestClick) {
@@ -119,18 +99,6 @@ export default function CitizenRequestTracker({ onRequestClick }: CitizenRequest
     } else {
       setModalOpen(true)
     }
-  }
-
-  const handleStartCall = (req: EmergencyRequest) => {
-    playClickSound()
-    setCallDriverRequest(req)
-    setCallActive(true)
-  }
-
-  const handleEndCall = () => {
-    playClickSound()
-    setCallActive(false)
-    setCallDriverRequest(null)
   }
 
   const activeEmailDisplay = user?.email || 'Registered Citizen'
@@ -558,23 +526,6 @@ export default function CitizenRequestTracker({ onRequestClick }: CitizenRequest
                         </div>
                         <div style={{ fontSize: 13, fontWeight: 800, color: '#FBBF24', marginTop: 2 }}>
                           {req.driverPhone || '+91 98451 91108'}
-                        </div>
-                        <div style={{ marginTop: 4 }}>
-                          <button
-                            onClick={() => handleStartCall(req)}
-                            style={{
-                              padding: '4px 10px',
-                              borderRadius: 6,
-                              background: 'rgba(245, 158, 11, 0.2)',
-                              border: '1px solid rgba(245, 158, 11, 0.45)',
-                              color: '#FBBF24',
-                              fontSize: 11,
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            📞 Call Driver / Pilot
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -1009,105 +960,6 @@ export default function CitizenRequestTracker({ onRequestClick }: CitizenRequest
                   Close Receipt
                 </button>
               </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* ─── Modal 2: Pilot Call Simulator ──────────────────────── */}
-      <AnimatePresence>
-        {callDriverRequest && (
-          <div style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 10000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-            background: 'rgba(2, 6, 4, 0.88)',
-            backdropFilter: 'blur(20px)',
-          }}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.94 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.94 }}
-              style={{
-                width: '100%',
-                maxWidth: 400,
-                background: 'linear-gradient(145deg, #0A1611 0%, #040907 100%)',
-                border: '1.5px solid #10B981',
-                borderRadius: 20,
-                padding: '28px 24px',
-                textAlign: 'center',
-                color: '#FFFFFF',
-                boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(16, 185, 129, 0.3)',
-              }}
-            >
-              <div style={{
-                width: 72,
-                height: 72,
-                borderRadius: '50%',
-                background: 'rgba(16, 185, 129, 0.2)',
-                border: '2px solid #10B981',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 16px',
-                boxShadow: '0 0 25px rgba(16, 185, 129, 0.4)',
-              }}>
-                <Phone size={32} color="#34D399" />
-              </div>
-
-              <div style={{ fontSize: 12, color: '#34D399', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1 }}>
-                Connected to Emergency Pilot
-              </div>
-              <h3 style={{ margin: '6px 0 2px', fontSize: 20, fontWeight: 800 }}>
-                {callDriverRequest.driverName || 'Manjunath R. (Ambulance Pilot)'}
-              </h3>
-              <div style={{ fontSize: 14, color: 'var(--tx-muted)', marginBottom: 8 }}>
-                {callDriverRequest.driverPhone || '+91 98451 91108'}
-              </div>
-
-              <div style={{
-                fontSize: 18,
-                fontWeight: 900,
-                color: '#10B981',
-                fontFamily: 'monospace',
-                margin: '12px 0 18px',
-              }}>
-                00:{callDuration < 10 ? `0${callDuration}` : callDuration}
-              </div>
-
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: 10,
-                padding: '10px 14px',
-                fontSize: 12,
-                color: 'rgba(255, 255, 255, 0.8)',
-                marginBottom: 20,
-              }}>
-                <em>"Sir, I am currently navigating past Hebbal Flyover in 108 Ambulance {callDriverRequest.dispatchVehicle}. ETA is ~12 minutes. Please keep patient SpO2 monitor ready."</em>
-              </div>
-
-              <button
-                onClick={handleEndCall}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: 12,
-                  background: 'linear-gradient(135deg, #EF4444 0%, #B91C1C 100%)',
-                  border: 'none',
-                  color: '#FFFFFF',
-                  fontSize: 14,
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 20px rgba(239, 68, 68, 0.45)',
-                }}
-              >
-                End Call
-              </button>
             </motion.div>
           </div>
         )}
