@@ -262,75 +262,104 @@ export function fromSupabaseDamageReport(row: any): CitizenDamageReport {
 
 let hasInitializedReliefSync = false
 
+export async function pullCloudReliefData(): Promise<void> {
+  if (typeof window === 'undefined') return
+
+  // 1. Fetch Donations from Supabase
+  try {
+    const { data, error } = await supabase
+      .from('relief_donations')
+      .select('*')
+      .order('donated_at', { ascending: false })
+
+    if (!error && data) {
+      const cloud = data.map(fromSupabaseDonation)
+      const local = getAllDonations()
+      const map = new Map<string, DonationRecord>()
+      cloud.forEach(d => map.set(d.id, d))
+      local.forEach(d => {
+        if (!map.has(d.id)) map.set(d.id, d)
+      })
+      const merged = Array.from(map.values()).sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      )
+      localStorage.setItem(DONATIONS_KEY, JSON.stringify(merged))
+      notifyDonations()
+    }
+  } catch (err) {
+    console.warn('Donations cloud pull error:', err)
+  }
+
+  // 2. Fetch Advisories from Supabase
+  try {
+    const { data, error } = await supabase
+      .from('authority_advisories')
+      .select('*')
+      .order('published_at', { ascending: false })
+
+    if (!error && data) {
+      const cloud = data.map(fromSupabaseAdvisory)
+      const local = getAllAdvisories()
+      const map = new Map<string, AuthorityAdvisory>()
+      cloud.forEach(a => map.set(a.id, a))
+      local.forEach(a => {
+        if (!map.has(a.id)) map.set(a.id, a)
+      })
+      const merged = Array.from(map.values()).sort(
+        (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+      )
+      localStorage.setItem(ADVISORIES_KEY, JSON.stringify(merged))
+      notifyAdvisories()
+    }
+  } catch (err) {
+    console.warn('Advisories cloud pull error:', err)
+  }
+
+  // 3. Fetch Damage Reports from Supabase
+  try {
+    const { data, error } = await supabase
+      .from('citizen_damage_reports')
+      .select('*')
+      .order('reported_at', { ascending: false })
+
+    if (!error && data) {
+      const cloud = data.map(fromSupabaseDamageReport)
+      const local = getAllDamageReports()
+      const map = new Map<string, CitizenDamageReport>()
+      cloud.forEach(r => map.set(r.id, r))
+      local.forEach(r => {
+        if (!map.has(r.id)) map.set(r.id, r)
+      })
+      const merged = Array.from(map.values()).sort(
+        (a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
+      )
+      localStorage.setItem(DAMAGE_REPORTS_KEY, JSON.stringify(merged))
+      notifyReports()
+    }
+  } catch (err) {
+    console.warn('Damage reports cloud pull error:', err)
+  }
+}
+
 export function initSupabaseReliefSync() {
   if (typeof window === 'undefined' || hasInitializedReliefSync) return
   hasInitializedReliefSync = true
 
-  // 1. Initial Cloud Fetch for Donations
-  try {
-    supabase
-      .from('relief_donations')
-      .select('*')
-      .order('donated_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data && data.length > 0) {
-          const cloud = data.map(fromSupabaseDonation)
-          const local = getAllDonations()
-          const map = new Map<string, DonationRecord>()
-          local.forEach(d => map.set(d.id, d))
-          cloud.forEach(d => map.set(d.id, d))
-          const merged = Array.from(map.values()).sort(
-            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          )
-          localStorage.setItem(DONATIONS_KEY, JSON.stringify(merged))
-          notifyDonations()
-        }
-      })
-  } catch {}
+  // Initial cloud fetch
+  pullCloudReliefData()
 
-  // 2. Initial Cloud Fetch for Advisories
-  try {
-    supabase
-      .from('authority_advisories')
-      .select('*')
-      .order('published_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data && data.length > 0) {
-          const cloud = data.map(fromSupabaseAdvisory)
-          const local = getAllAdvisories()
-          const map = new Map<string, AuthorityAdvisory>()
-          local.forEach(a => map.set(a.id, a))
-          cloud.forEach(a => map.set(a.id, a))
-          const merged = Array.from(map.values()).sort(
-            (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-          )
-          localStorage.setItem(ADVISORIES_KEY, JSON.stringify(merged))
-          notifyAdvisories()
-        }
-      })
-  } catch {}
+  // Periodic polling every 3.5 seconds across all devices
+  setInterval(() => {
+    pullCloudReliefData()
+  }, 3500)
 
-  // 3. Initial Cloud Fetch for Damage Reports
-  try {
-    supabase
-      .from('citizen_damage_reports')
-      .select('*')
-      .order('reported_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data && data.length > 0) {
-          const cloud = data.map(fromSupabaseDamageReport)
-          const local = getAllDamageReports()
-          const map = new Map<string, CitizenDamageReport>()
-          local.forEach(r => map.set(r.id, r))
-          cloud.forEach(r => map.set(r.id, r))
-          const merged = Array.from(map.values()).sort(
-            (a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
-          )
-          localStorage.setItem(DAMAGE_REPORTS_KEY, JSON.stringify(merged))
-          notifyReports()
-        }
-      })
-  } catch {}
+  // Re-sync on tab switch or focus
+  window.addEventListener('focus', () => pullCloudReliefData())
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      pullCloudReliefData()
+    }
+  })
 
   // 4. Supabase Realtime Channels for Cross-Device Sync
   try {

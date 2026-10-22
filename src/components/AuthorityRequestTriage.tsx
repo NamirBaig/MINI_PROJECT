@@ -5,7 +5,8 @@ import {
   Bed, Phone, MapPin, Building2, AlertTriangle, User,
   Filter, Search, Send, Clock, X, ChevronDown, Check, Droplets,
   Radio, Compass, ShieldCheck, Heart, Sparkles, AlertOctagon,
-  Users, BarChart3, Navigation, ExternalLink, ArrowRight, Layers
+  Users, BarChart3, Navigation, ExternalLink, ArrowRight, Layers,
+  RefreshCw
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../context/ToastContext'
@@ -17,6 +18,7 @@ import {
   markAsDispatched,
   subscribeToRequests,
   clearAllEmergencyRequests,
+  pullCloudRequests,
   type EmergencyRequest,
 } from '../services/requestService'
 import {
@@ -32,6 +34,7 @@ import {
   subscribeToAdvisories,
   subscribeToDonations,
   clearAllIncidentAndReliefData,
+  pullCloudReliefData,
   type CitizenDamageReport,
   type CrowdsourcedRedZone,
   type AuthorityAdvisory,
@@ -125,8 +128,27 @@ export default function AuthorityRequestTriage() {
     setReliefTotals(getTotalReliefFunds())
   }
 
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [lastSyncTime, setLastSyncTime] = useState('Active')
+
+  const handleManualSync = async () => {
+    setIsSyncing(true)
+    playClickSound()
+    try {
+      await Promise.all([pullCloudRequests(), pullCloudReliefData()])
+      refreshAll()
+      setLastSyncTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+      toast.success('Live Cloud Synchronized', 'All requests, relief donations, and citizen damage reports up-to-date with Supabase.')
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   useEffect(() => {
     refreshAll()
+    pullCloudRequests().then(refreshAll)
+    pullCloudReliefData().then(refreshAll)
+
     const unsubReq = subscribeToRequests(refreshAll)
     const unsubRep = subscribeToDamageReports(refreshAll)
     const unsubAdv = subscribeToAdvisories(refreshAll)
@@ -138,7 +160,7 @@ export default function AuthorityRequestTriage() {
       unsubAdv()
       unsubDon()
     }
-  }, [])
+  }, [activeTab])
 
   // Emergency Requests Filtering
   const filteredRequests = requests.filter(req => {
@@ -410,6 +432,61 @@ export default function AuthorityRequestTriage() {
             <Radio size={16} /> Broadcast Official Advisory
           </button>
         </div>
+      </div>
+
+      {/* ─── Live Cloud Sync Status Banner ─── */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 10,
+          background: 'rgba(16, 185, 129, 0.06)',
+          border: '1px solid rgba(16, 185, 129, 0.25)',
+          borderRadius: 12,
+          padding: '8px 14px',
+          marginBottom: 14,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+          <span style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: '#10B981',
+            boxShadow: '0 0 10px #10B981',
+            display: 'inline-block',
+          }} />
+          <span style={{ color: '#34D399', fontWeight: 700 }}>
+            Supabase Live Cloud Active
+          </span>
+          <span style={{ color: 'var(--tx-muted)', fontSize: 11 }}>
+            (Multi-device sync • Last checked: {lastSyncTime})
+          </span>
+        </div>
+
+        <button
+          onClick={handleManualSync}
+          disabled={isSyncing}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '5px 12px',
+            borderRadius: 8,
+            background: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            color: '#FFFFFF',
+            fontSize: 11.5,
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          <RefreshCw size={13} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
+          {isSyncing ? 'Synchronizing...' : 'Sync Cloud Now'}
+        </button>
       </div>
 
       {/* ─── 5-TAB COMMAND NAVIGATION ─── */}

@@ -163,33 +163,52 @@ export function fromSupabaseRequest(row: any): EmergencyRequest {
 
 let hasInitializedRequestsSync = false
 
+export async function pullCloudRequests(): Promise<void> {
+  if (typeof window === 'undefined') return
+  try {
+    const { data, error } = await supabase
+      .from('emergency_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      const cloudRequests = data.map(fromSupabaseRequest)
+      const local = getAllRequests()
+      const map = new Map<string, EmergencyRequest>()
+      cloudRequests.forEach((r) => map.set(r.id, r))
+      local.forEach((r) => {
+        if (!map.has(r.id)) map.set(r.id, r)
+      })
+      const merged = Array.from(map.values()).sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(merged))
+      notifyListeners()
+    }
+  } catch (err) {
+    console.warn('Supabase requests cloud pull skipped:', err)
+  }
+}
+
 export function initSupabaseRequestsSync() {
   if (typeof window === 'undefined' || hasInitializedRequestsSync) return
   hasInitializedRequestsSync = true
 
-  // Initial cloud fetch to load requests submitted from other devices
-  try {
-    supabase
-      .from('emergency_requests')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data && data.length > 0) {
-          const cloudRequests = data.map(fromSupabaseRequest)
-          const local = getAllRequests()
-          const map = new Map<string, EmergencyRequest>()
-          local.forEach((r) => map.set(r.id, r))
-          cloudRequests.forEach((r) => map.set(r.id, r))
-          const merged = Array.from(map.values()).sort(
-            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          )
-          localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(merged))
-          notifyListeners()
-        }
-      })
-  } catch (err) {
-    console.warn('Supabase requests fetch skipped:', err)
-  }
+  // Initial cloud fetch
+  pullCloudRequests()
+
+  // Continuous auto-polling every 3.5 seconds
+  setInterval(() => {
+    pullCloudRequests()
+  }, 3500)
+
+  // Re-sync on window focus or visibility change
+  window.addEventListener('focus', () => pullCloudRequests())
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      pullCloudRequests()
+    }
+  })
 
   // Real-time broadcast channel across all devices & browsers
   try {
