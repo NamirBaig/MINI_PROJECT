@@ -10,21 +10,24 @@ import {
   Package,
 } from 'lucide-react';
 import { playClickSound } from '../utils/audioFeedback';
-
-const MOBILE_NAV_ITEMS = [
-  { path: '/dashboard', label: 'Cockpit', icon: LayoutDashboard },
-  { path: '/yelahanka', label: 'Live Hub', icon: Radio },
-  { path: '/risk-map', label: 'Risk Map', icon: Map },
-  { path: '/preparedness', label: 'Go-Bag', icon: CheckSquare },
-  { path: '/resources', label: 'Logistics', icon: Package },
-];
+import { useAuth } from '../hooks/useAuth';
 
 export default function MobileDock() {
   const location = useLocation();
+  const { currentRole } = useAuth();
+  const isCitizen = currentRole === 'citizen';
+
+  const mobileNavItems = [
+    { path: '/dashboard', label: 'Cockpit', icon: LayoutDashboard },
+    { path: '/yelahanka', label: 'Live Hub', icon: Radio },
+    { path: '/risk-map', label: 'Risk Map', icon: Map },
+    { path: '/preparedness', label: 'Go-Bag', icon: CheckSquare },
+    { path: '/resources', label: isCitizen ? 'Supplies' : 'Logistics', icon: Package },
+  ];
 
   return (
     <nav className="mobile-dock">
-      {MOBILE_NAV_ITEMS.map(({ path, label, icon: Icon }) => {
+      {mobileNavItems.map(({ path, label, icon: Icon }) => {
         const isActive = location.pathname === path;
         return (
           <Link

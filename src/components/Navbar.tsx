@@ -7,6 +7,7 @@ import {
   Bot, X, Sparkles, Send, Radio
 } from 'lucide-react'
 import type { WeatherData } from '../hooks/useWeather'
+import { useAuth } from '../hooks/useAuth'
 import { playClickSound, playSuccessSound } from '../utils/audioFeedback'
 import { useToast } from '../context/ToastContext'
 import { AnimatedWeatherIcon, AnimatedWeatherBoxCanvas } from './AnimatedWeatherBadge'
@@ -18,14 +19,6 @@ interface NavbarProps {
   currentPage?: string
 }
 
-const NAV_ITEMS = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/yelahanka', label: 'Yelahanka Flood Hub', icon: Radio, isLive: true },
-  { path: '/risk-map', label: 'Risk Map', icon: Map },
-  { path: '/climate', label: 'Climate Trends', icon: Thermometer },
-  { path: '/preparedness', label: 'Preparedness', icon: CheckSquare },
-  { path: '/resources', label: 'Resources & Supply', icon: Package },
-]
 
 const ADVISOR_PROMPTS = [
   { q: 'Why did Yelahanka flood recently?', a: 'Heavy localized rain of 157mm in 4 hours overwhelmed local drains. Lake Amanikere reached full capacity, causing water backflow into Kendriya Vihar and nearby low-lying streets.' },
@@ -37,11 +30,22 @@ const ADVISOR_PROMPTS = [
 export default function Navbar({ user, onSignOut, weather }: NavbarProps) {
   const location = useLocation()
   const toast = useToast()
+  const { currentRole } = useAuth()
   const [advisorOpen, setAdvisorOpen] = useState(false)
   const [advisorInput, setAdvisorInput] = useState('')
   const [advisorMessages, setAdvisorMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string }>>([
     { sender: 'bot', text: 'Namaskara! I am your SafeGround Bengaluru Emergency Response Advisor. Choose a prompt or type below.' }
   ])
+
+  const isCitizen = currentRole === 'citizen'
+  const navItems = [
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/yelahanka', label: 'Yelahanka Flood Hub', icon: Radio, isLive: true },
+    { path: '/risk-map', label: 'Risk Map', icon: Map },
+    { path: '/climate', label: 'Climate Trends', icon: Thermometer },
+    { path: '/preparedness', label: 'Preparedness', icon: CheckSquare },
+    { path: '/resources', label: isCitizen ? 'Beds & Supplies' : 'Municipal Logistics', icon: Package },
+  ]
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Resident'
   const email = user?.email || 'citizen@safeground.blr'
@@ -186,7 +190,7 @@ export default function Navbar({ user, onSignOut, weather }: NavbarProps) {
 
         {/* Navigation Links */}
         <nav style={{ flex: 1, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto' }}>
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const { path, label, icon: Icon } = item
             const isLive = (item as any).isLive
             const isActive = location.pathname === path

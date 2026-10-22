@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Droplets, Sparkles, X, ChevronUp, ShieldCheck } from 'lucide-react'
+import { HeartPulse, Droplets, X, ChevronUp, ShieldCheck } from 'lucide-react'
 import { playClickSound } from '../utils/audioFeedback'
 import DisasterDonationModal from './DisasterDonationModal'
 import CitizenDamageReportModal from './CitizenDamageReportModal'
@@ -34,17 +34,17 @@ export default function FloatingReliefWidget() {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '8px',
-                background: 'rgba(12, 20, 16, 0.95)',
-                backdropFilter: 'blur(16px)',
-                border: '1px solid rgba(52, 211, 153, 0.28)',
+                background: 'rgba(10, 20, 15, 0.96)',
+                backdropFilter: 'blur(18px)',
+                border: '1px solid rgba(52, 211, 153, 0.35)',
                 borderRadius: '16px',
                 padding: '12px',
-                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.7), 0 0 25px rgba(236, 72, 153, 0.15)',
-                minWidth: '220px',
+                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.75), 0 0 25px rgba(16, 185, 129, 0.18)',
+                minWidth: '230px',
               }}
             >
-              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--tx-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '0 4px 4px' }}>
-                Quick Disaster Actions
+              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--tx-muted)', textTransform: 'uppercase', letterSpacing: '0.6px', padding: '0 4px 4px' }}>
+                Civic Relief & Field Reports
               </div>
 
               {/* Donate Button */}
@@ -62,8 +62,8 @@ export default function FloatingReliefWidget() {
                   gap: '10px',
                   padding: '10px 14px',
                   borderRadius: '10px',
-                  background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.2) 0%, rgba(190, 24, 93, 0.3) 100%)',
-                  border: '1px solid rgba(244, 114, 182, 0.45)',
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(5, 150, 105, 0.28) 100%)',
+                  border: '1px solid rgba(52, 211, 153, 0.45)',
                   color: '#FFFFFF',
                   fontSize: '12.5px',
                   fontWeight: 800,
@@ -73,20 +73,21 @@ export default function FloatingReliefWidget() {
               >
                 <div
                   style={{
-                    width: '30px',
-                    height: '30px',
+                    width: '32px',
+                    height: '32px',
                     borderRadius: '8px',
-                    background: '#EC4899',
+                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
+                    boxShadow: '0 0 10px rgba(16, 185, 129, 0.4)',
                   }}
                 >
-                  <Heart size={16} color="#FFFFFF" fill="#FFFFFF" />
+                  <HeartPulse size={17} color="#FFFFFF" />
                 </div>
                 <div>
-                  <div style={{ color: '#F472B6' }}>Donate for Relief</div>
+                  <div style={{ color: '#34D399', fontWeight: 800 }}>Disaster Relief Fund</div>
                   <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Max ₹10 Lakh • 80G Tax Exemption</div>
                 </div>
               </motion.button>
@@ -117,21 +118,22 @@ export default function FloatingReliefWidget() {
               >
                 <div
                   style={{
-                    width: '30px',
-                    height: '30px',
+                    width: '32px',
+                    height: '32px',
                     borderRadius: '8px',
-                    background: '#0284C7',
+                    background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
+                    boxShadow: '0 0 10px rgba(2, 132, 199, 0.4)',
                   }}
                 >
-                  <Droplets size={16} color="#FFFFFF" />
+                  <Droplets size={17} color="#FFFFFF" />
                 </div>
                 <div>
-                  <div style={{ color: '#38BDF8' }}>Report Water Depth</div>
-                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Crowdsource Red Zones • In Feet</div>
+                  <div style={{ color: '#38BDF8', fontWeight: 800 }}>Report Flood Depth</div>
+                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Depth in Feet • Real-Time Alert</div>
                 </div>
               </motion.button>
             </motion.div>
@@ -140,15 +142,15 @@ export default function FloatingReliefWidget() {
 
         {/* Main Floating Trigger Pill */}
         <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.96 }}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            background: 'linear-gradient(135deg, #17372D 0%, #0F231D 100%)',
-            border: '1px solid rgba(52, 211, 153, 0.45)',
-            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(16, 185, 129, 0.25)',
+            gap: '9px',
+            background: 'linear-gradient(135deg, #10261E 0%, #0A1712 100%)',
+            border: '1px solid rgba(52, 211, 153, 0.5)',
+            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(16, 185, 129, 0.3)',
             borderRadius: '30px',
             padding: '8px 14px 8px 10px',
             cursor: 'pointer',
@@ -158,26 +160,33 @@ export default function FloatingReliefWidget() {
             setExpanded(!expanded)
           }}
         >
-          {/* Animated Heart Pulsing icon */}
+          {/* Animated Heartbeat ECG pulse icon */}
           <motion.div
-            animate={{ scale: [1, 1.25, 1] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+            animate={{
+              scale: [1, 1.18, 1.02, 1.22, 1],
+            }}
+            transition={{
+              duration: 1.4,
+              repeat: Infinity,
+              times: [0, 0.15, 0.3, 0.45, 1],
+              ease: 'easeInOut',
+            }}
             style={{
               width: '28px',
               height: '28px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #EC4899 0%, #BE185D 100%)',
+              background: 'linear-gradient(135deg, #10B981 0%, #047857 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 12px rgba(236, 72, 153, 0.6)',
+              boxShadow: '0 0 12px rgba(16, 185, 129, 0.7)',
             }}
           >
-            <Heart size={14} color="#FFFFFF" fill="#FFFFFF" />
+            <HeartPulse size={15} color="#FFFFFF" />
           </motion.div>
 
-          <span style={{ fontSize: '12px', fontWeight: 900, color: '#FFFFFF', letterSpacing: '0.3px' }}>
-            💝 Relief & Reports
+          <span style={{ fontSize: '12px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.4px' }}>
+            Relief & Field Reports
           </span>
 
           <motion.div animate={{ rotate: expanded ? 180 : 0 }} style={{ display: 'flex', alignItems: 'center' }}>

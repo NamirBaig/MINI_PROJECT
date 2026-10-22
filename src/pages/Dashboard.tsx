@@ -6,7 +6,7 @@ import {
   ArrowRight, Activity, ShieldCheck, MapPin, CheckCircle2,
   ExternalLink, Waves, Zap, ChevronDown, ChevronUp, BellRing, Radio,
   PhoneCall, AlertOctagon, Share2, RefreshCw, X, Send, Compass,
-  Sparkles, LifeBuoy, Truck, Building2, CheckSquare, ShieldAlert, Heart
+  Sparkles, LifeBuoy, Truck, Building2, CheckSquare, ShieldAlert, Heart, HeartPulse
 } from 'lucide-react'
 import type { WeatherData } from '../hooks/useWeather'
 import { BENGALURU_ZONES, BENGALURU_CLIMATE, FLOOD_PRONE_SPOTS } from '../data/bengaluru'
@@ -517,16 +517,16 @@ export default function Dashboard({ weatherData }: DashboardProps) {
               onClick={() => { playClickSound(); setDonationModalOpen(true); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
-                background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.22) 0%, rgba(190, 24, 93, 0.08) 100%)',
-                border: '1px solid rgba(244, 114, 182, 0.45)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
-                boxShadow: '0 4px 15px rgba(236, 72, 153, 0.2)',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(5, 150, 105, 0.08) 100%)',
+                border: '1px solid rgba(52, 211, 153, 0.45)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
+                boxShadow: '0 4px 15px rgba(16, 185, 129, 0.15)',
               }}
             >
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #EC4899 0%, #BE185D 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', flexShrink: 0 }}>
-                <Heart size={20} fill="#FFFFFF" />
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', flexShrink: 0 }}>
+                <HeartPulse size={20} color="#FFFFFF" />
               </div>
               <div>
-                <div style={{ fontSize: 13.5, fontWeight: 900, color: '#F472B6' }}>💝 Donate for Flood Relief</div>
+                <div style={{ fontSize: 13.5, fontWeight: 900, color: '#34D399' }}>Contribute to Disaster Relief</div>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>Max ₹10 Lakh • 80G Tax Exemption</div>
               </div>
             </motion.button>
