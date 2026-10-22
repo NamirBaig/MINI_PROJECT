@@ -101,6 +101,133 @@ function notifyListeners() {
   })
 }
 
+export function toSupabaseRequest(req: EmergencyRequest) {
+  return {
+    id: req.id,
+    user_id: req.userId,
+    requester_name: req.requesterName,
+    requester_email: req.requesterEmail,
+    requester_phone: req.requesterPhone,
+    zone: req.zone,
+    address: req.address,
+    resource_type: req.resourceType,
+    quantity: req.quantity,
+    urgency: req.urgency,
+    patient_notes: req.patientNotes,
+    status: req.status,
+    allocated_hospital: req.allocatedHospital,
+    hospital_bed_number: req.hospitalBedNumber,
+    dispatch_vehicle: req.dispatchVehicle,
+    driver_name: req.driverName,
+    driver_phone: req.driverPhone,
+    dispatch_eta: req.dispatchEta,
+    redirect_shelter: req.redirectShelter,
+    reviewed_by: req.reviewedBy,
+    reviewed_at: req.reviewedAt,
+    action_notes: req.actionNotes,
+    audit_trail: req.auditTrail || [],
+    created_at: req.createdAt,
+    updated_at: req.updatedAt,
+  }
+}
+
+export function fromSupabaseRequest(row: any): EmergencyRequest {
+  return {
+    id: row.id,
+    userId: row.user_id || '',
+    requesterName: row.requester_name || '',
+    requesterEmail: row.requester_email || '',
+    requesterPhone: row.requester_phone || '',
+    zone: row.zone || '',
+    address: row.address || '',
+    resourceType: row.resource_type || '',
+    quantity: Number(row.quantity) || 1,
+    urgency: (row.urgency as UrgencyLevel) || 'HIGH',
+    patientNotes: row.patient_notes || '',
+    status: (row.status as RequestStatus) || 'PENDING',
+    allocatedHospital: row.allocated_hospital || null,
+    hospitalBedNumber: row.hospital_bed_number || null,
+    dispatchVehicle: row.dispatch_vehicle || null,
+    driverName: row.driver_name || null,
+    driverPhone: row.driver_phone || null,
+    dispatchEta: row.dispatch_eta || null,
+    redirectShelter: row.redirect_shelter || null,
+    reviewedBy: row.reviewed_by || null,
+    reviewedAt: row.reviewed_at || null,
+    actionNotes: row.action_notes || null,
+    auditTrail: Array.isArray(row.audit_trail) ? row.audit_trail : [],
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
+  }
+}
+
+let hasInitializedRequestsSync = false
+
+export function initSupabaseRequestsSync() {
+  if (typeof window === 'undefined' || hasInitializedRequestsSync) return
+  hasInitializedRequestsSync = true
+
+  // Initial cloud fetch to load requests submitted from other devices
+  try {
+    supabase
+      .from('emergency_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          const cloudRequests = data.map(fromSupabaseRequest)
+          const local = getAllRequests()
+          const map = new Map<string, EmergencyRequest>()
+          local.forEach((r) => map.set(r.id, r))
+          cloudRequests.forEach((r) => map.set(r.id, r))
+          const merged = Array.from(map.values()).sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+          localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(merged))
+          notifyListeners()
+        }
+      })
+  } catch (err) {
+    console.warn('Supabase requests fetch skipped:', err)
+  }
+
+  // Real-time broadcast channel across all devices & browsers
+  try {
+    supabase
+      .channel('emergency_requests_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'emergency_requests' },
+        (payload) => {
+          const all = getAllRequests()
+          if (payload.eventType === 'INSERT') {
+            const newReq = fromSupabaseRequest(payload.new)
+            if (!all.some((r) => r.id === newReq.id)) {
+              const updated = [newReq, ...all]
+              localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(updated))
+              notifyListeners()
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedReq = fromSupabaseRequest(payload.new)
+            const updated = all.map((r) => (r.id === updatedReq.id ? updatedReq : r))
+            localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(updated))
+            notifyListeners()
+          } else if (payload.eventType === 'DELETE') {
+            const delId = payload.old?.id
+            if (delId) {
+              const updated = all.filter((r) => r.id !== delId)
+              localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(updated))
+              notifyListeners()
+            }
+          }
+        }
+      )
+      .subscribe()
+  } catch (err) {
+    console.warn('Supabase Realtime subscription skipped:', err)
+  }
+}
+
 export function subscribeToRequests(callback: RequestChangeListener): () => void {
   listeners.add(callback)
   return () => {
@@ -175,6 +302,9 @@ export function clearAllEmergencyRequests() {
     localStorage.removeItem(KNOWN_EMAILS_KEY)
     localStorage.removeItem(SEQ_REQUEST_KEY)
   }
+  try {
+    supabase.from('emergency_requests').delete().neq('id', '_dummy_').then(() => {})
+  } catch {}
   notifyListeners()
 }
 
@@ -262,24 +392,12 @@ export function createEmergencyRequest(
     localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(updated))
   }
 
-  // Attempt Supabase async background sync if configured
+  // Supabase cloud sync across all devices
   try {
     supabase
-      .from('resource_requests')
-      .insert({
-        id: newReq.id,
-        user_id: newReq.userId,
-        requester_name: newReq.requesterName,
-        requester_phone: newReq.requesterPhone,
-        zone: newReq.zone,
-        address: newReq.address,
-        resource_type: newReq.resourceType,
-        quantity: newReq.quantity,
-        urgency: newReq.urgency,
-        patient_notes: newReq.patientNotes,
-        status: newReq.status,
-      })
-      .then(() => {}, () => {})
+      .from('emergency_requests')
+      .upsert(toSupabaseRequest(newReq))
+      .then(() => {}, (err) => console.warn('Supabase sync warning:', err))
   } catch (e) {}
 
   notifyListeners()
@@ -372,6 +490,12 @@ export function approveEmergencyRequest(
     localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(updated))
   }
 
+  if (target) {
+    try {
+      supabase.from('emergency_requests').upsert(toSupabaseRequest(target)).then(() => {})
+    } catch {}
+  }
+
   notifyListeners()
   return target
 }
@@ -422,6 +546,12 @@ export function denyEmergencyRequest(
     localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(updated))
   }
 
+  if (target) {
+    try {
+      supabase.from('emergency_requests').upsert(toSupabaseRequest(target)).then(() => {})
+    } catch {}
+  }
+
   notifyListeners()
   return target
 }
@@ -465,6 +595,12 @@ export function markAsDispatched(
 
   if (typeof window !== 'undefined') {
     localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(updated))
+  }
+
+  if (target) {
+    try {
+      supabase.from('emergency_requests').upsert(toSupabaseRequest(target)).then(() => {})
+    } catch {}
   }
 
   notifyListeners()

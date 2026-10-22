@@ -16,17 +16,29 @@ import Resources from './pages/Resources'
 import YelahankaHub from './pages/YelahankaHub'
 import Auth from './pages/Auth'
 import FloatingReliefWidget from './components/FloatingReliefWidget'
+import { initSupabaseRequestsSync } from './services/requestService'
+import { initSupabaseReliefSync } from './services/incidentAndReliefService'
 
-// One-time automatic clean-slate purge: resets legacy records to null/empty and monotonic counters to 0
+// One-time automatic clean-slate purge: resets all user accounts, records, and monotonic counters for a fresh start
 if (typeof window !== 'undefined') {
   try {
-    const PURGE_KEY = 'safeground_clean_slate_monotonic_v5'
+    const PURGE_KEY = 'safeground_fresh_start_v1'
     if (!localStorage.getItem(PURGE_KEY)) {
-      localStorage.removeItem('safeground_requests_db')
+      // Clear all active sessions & saved users
+      localStorage.removeItem('safeground_user')
+      localStorage.removeItem('safeground_guest_user')
+      localStorage.removeItem('safeground_primary_personal_user')
+      localStorage.removeItem('safeground_users_db')
+      localStorage.removeItem('safeground_saved_users')
       localStorage.removeItem('safeground_known_requester_emails')
+      localStorage.removeItem('safeground_remembered_role')
+      // Clear all emergency and relief records
+      localStorage.removeItem('safeground_requests_db')
       localStorage.removeItem('safeground_damage_reports')
       localStorage.removeItem('safeground_official_advisories')
       localStorage.removeItem('safeground_donations_db')
+      localStorage.removeItem('safeground_tasks')
+      // Reset monotonic counters to 0 so next is 0001
       localStorage.removeItem('safeground_seq_request')
       localStorage.removeItem('safeground_seq_donation')
       localStorage.removeItem('safeground_seq_tax_token')
@@ -36,6 +48,14 @@ if (typeof window !== 'undefined') {
     }
   } catch (e) {
     console.error('Storage purge check failed:', e)
+  }
+
+  // Initialize live Supabase Realtime synchronization across all devices
+  try {
+    initSupabaseRequestsSync()
+    initSupabaseReliefSync()
+  } catch (e) {
+    console.warn('Realtime cloud sync init warning:', e)
   }
 }
 

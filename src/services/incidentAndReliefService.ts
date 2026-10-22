@@ -8,6 +8,8 @@
 // 5. Disaster Relief Donations (Max ₹10 Lakh) with User Audit
 // ============================================================
 
+import { supabase } from '../lib/supabase'
+
 export interface CitizenDamageReport {
   id: string
   userId: string
@@ -162,6 +164,245 @@ if (typeof window !== 'undefined') {
   })
 }
 
+export function toSupabaseDonation(d: DonationRecord) {
+  return {
+    id: d.id,
+    donor_name: d.donorName,
+    donor_email: d.donorEmail,
+    donor_pan: d.donorPhone || '',
+    amount: d.amount,
+    allocated_cause: d.targetReliefCause,
+    payment_ref: d.paymentMethod,
+    tax_token: d.taxExemptionToken,
+    certificate_issued: true,
+    donated_at: d.timestamp,
+  }
+}
+
+export function fromSupabaseDonation(row: any): DonationRecord {
+  return {
+    id: row.id,
+    userId: `donor-${row.id}`,
+    donorName: row.donor_name || 'Anonymous Donor',
+    donorEmail: row.donor_email || '',
+    donorPhone: row.donor_pan || '+91 98450 00000',
+    amount: Number(row.amount) || 0,
+    targetReliefCause: row.allocated_cause || 'Bengaluru Flood Relief Fund',
+    paymentMethod: row.payment_ref || 'UPI / NetBanking',
+    timestamp: row.donated_at || new Date().toISOString(),
+    taxExemptionToken: row.tax_token || 'KA-80G-0001',
+  }
+}
+
+export function toSupabaseAdvisory(a: AuthorityAdvisory) {
+  return {
+    id: a.id,
+    title: a.title,
+    zone: a.zone,
+    severity: a.severity,
+    message: a.message,
+    water_depth_reported: a.waterDepthReported,
+    safer_alternative_route: a.saferAlternativeRoute,
+    authority_name: a.authorityName,
+    published_at: a.publishedAt,
+  }
+}
+
+export function fromSupabaseAdvisory(row: any): AuthorityAdvisory {
+  return {
+    id: row.id,
+    title: row.title || '',
+    zone: row.zone || '',
+    severity: (row.severity as any) || 'HIGH',
+    message: row.message || '',
+    waterDepthReported: row.water_depth_reported || '',
+    saferAlternativeRoute: row.safer_alternative_route || '',
+    authorityName: row.authority_name || 'BBMP / KSNDMC',
+    publishedAt: row.published_at || new Date().toISOString(),
+    active: true,
+  }
+}
+
+export function toSupabaseDamageReport(r: CitizenDamageReport) {
+  return {
+    id: r.id,
+    reporter_name: r.reporterName,
+    reporter_email: r.reporterEmail,
+    reporter_phone: r.reporterPhone,
+    zone: r.zone,
+    landmark: r.landmark,
+    water_depth_feet: r.waterDepthFeet,
+    damage_type: r.damageType,
+    damage_description: r.damageDescription,
+    severity: r.severity,
+    status: r.status,
+    reported_at: r.reportedAt,
+  }
+}
+
+export function fromSupabaseDamageReport(row: any): CitizenDamageReport {
+  return {
+    id: row.id,
+    userId: 'reporter-anon',
+    reporterName: row.reporter_name || '',
+    reporterEmail: row.reporter_email || '',
+    reporterPhone: row.reporter_phone || '',
+    zone: row.zone || '',
+    landmark: row.landmark || '',
+    waterDepthFeet: Number(row.water_depth_feet) || 0,
+    damageType: (row.damage_type as any) || 'Road Submersion',
+    damageDescription: row.damage_description || '',
+    severity: (row.severity as any) || 'HIGH',
+    status: (row.status as any) || 'PENDING_REVIEW',
+    reportedAt: row.reported_at || new Date().toISOString(),
+    verifiedBy: null,
+    publishedAdvisoryId: null,
+  }
+}
+
+let hasInitializedReliefSync = false
+
+export function initSupabaseReliefSync() {
+  if (typeof window === 'undefined' || hasInitializedReliefSync) return
+  hasInitializedReliefSync = true
+
+  // 1. Initial Cloud Fetch for Donations
+  try {
+    supabase
+      .from('relief_donations')
+      .select('*')
+      .order('donated_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          const cloud = data.map(fromSupabaseDonation)
+          const local = getAllDonations()
+          const map = new Map<string, DonationRecord>()
+          local.forEach(d => map.set(d.id, d))
+          cloud.forEach(d => map.set(d.id, d))
+          const merged = Array.from(map.values()).sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          )
+          localStorage.setItem(DONATIONS_KEY, JSON.stringify(merged))
+          notifyDonations()
+        }
+      })
+  } catch {}
+
+  // 2. Initial Cloud Fetch for Advisories
+  try {
+    supabase
+      .from('authority_advisories')
+      .select('*')
+      .order('published_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          const cloud = data.map(fromSupabaseAdvisory)
+          const local = getAllAdvisories()
+          const map = new Map<string, AuthorityAdvisory>()
+          local.forEach(a => map.set(a.id, a))
+          cloud.forEach(a => map.set(a.id, a))
+          const merged = Array.from(map.values()).sort(
+            (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+          )
+          localStorage.setItem(ADVISORIES_KEY, JSON.stringify(merged))
+          notifyAdvisories()
+        }
+      })
+  } catch {}
+
+  // 3. Initial Cloud Fetch for Damage Reports
+  try {
+    supabase
+      .from('citizen_damage_reports')
+      .select('*')
+      .order('reported_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          const cloud = data.map(fromSupabaseDamageReport)
+          const local = getAllDamageReports()
+          const map = new Map<string, CitizenDamageReport>()
+          local.forEach(r => map.set(r.id, r))
+          cloud.forEach(r => map.set(r.id, r))
+          const merged = Array.from(map.values()).sort(
+            (a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
+          )
+          localStorage.setItem(DAMAGE_REPORTS_KEY, JSON.stringify(merged))
+          notifyReports()
+        }
+      })
+  } catch {}
+
+  // 4. Supabase Realtime Channels for Cross-Device Sync
+  try {
+    supabase
+      .channel('relief_donations_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'relief_donations' }, (payload) => {
+        const all = getAllDonations()
+        if (payload.eventType === 'INSERT') {
+          const item = fromSupabaseDonation(payload.new)
+          if (!all.some(d => d.id === item.id)) {
+            localStorage.setItem(DONATIONS_KEY, JSON.stringify([item, ...all]))
+            notifyDonations()
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const item = fromSupabaseDonation(payload.new)
+          localStorage.setItem(DONATIONS_KEY, JSON.stringify(all.map(d => d.id === item.id ? item : d)))
+          notifyDonations()
+        } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+          localStorage.setItem(DONATIONS_KEY, JSON.stringify(all.filter(d => d.id !== payload.old.id)))
+          notifyDonations()
+        }
+      })
+      .subscribe()
+  } catch {}
+
+  try {
+    supabase
+      .channel('authority_advisories_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'authority_advisories' }, (payload) => {
+        const all = getAllAdvisories()
+        if (payload.eventType === 'INSERT') {
+          const item = fromSupabaseAdvisory(payload.new)
+          if (!all.some(a => a.id === item.id)) {
+            localStorage.setItem(ADVISORIES_KEY, JSON.stringify([item, ...all]))
+            notifyAdvisories()
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const item = fromSupabaseAdvisory(payload.new)
+          localStorage.setItem(ADVISORIES_KEY, JSON.stringify(all.map(a => a.id === item.id ? item : a)))
+          notifyAdvisories()
+        } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+          localStorage.setItem(ADVISORIES_KEY, JSON.stringify(all.filter(a => a.id !== payload.old.id)))
+          notifyAdvisories()
+        }
+      })
+      .subscribe()
+  } catch {}
+
+  try {
+    supabase
+      .channel('citizen_damage_reports_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'citizen_damage_reports' }, (payload) => {
+        const all = getAllDamageReports()
+        if (payload.eventType === 'INSERT') {
+          const item = fromSupabaseDamageReport(payload.new)
+          if (!all.some(r => r.id === item.id)) {
+            localStorage.setItem(DAMAGE_REPORTS_KEY, JSON.stringify([item, ...all]))
+            notifyReports()
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const item = fromSupabaseDamageReport(payload.new)
+          localStorage.setItem(DAMAGE_REPORTS_KEY, JSON.stringify(all.map(r => r.id === item.id ? item : r)))
+          notifyReports()
+        } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+          localStorage.setItem(DAMAGE_REPORTS_KEY, JSON.stringify(all.filter(r => r.id !== payload.old.id)))
+          notifyReports()
+        }
+      })
+      .subscribe()
+  } catch {}
+}
+
 // ============================================================
 // 1. Citizen Damage & Waterlogging Reports
 // ============================================================
@@ -197,6 +438,9 @@ export function submitDamageReport(data: Omit<CitizenDamageReport, 'id' | 'statu
   if (typeof window !== 'undefined') {
     localStorage.setItem(DAMAGE_REPORTS_KEY, JSON.stringify(updated))
   }
+  try {
+    supabase.from('citizen_damage_reports').upsert(toSupabaseDamageReport(newReport)).then(() => {})
+  } catch {}
   notifyReports()
   return newReport
 }
@@ -348,6 +592,9 @@ export function publishAdvisory(
   if (typeof window !== 'undefined') {
     localStorage.setItem(ADVISORIES_KEY, JSON.stringify(updatedAdvisories))
   }
+  try {
+    supabase.from('authority_advisories').upsert(toSupabaseAdvisory(newAdv)).then(() => {})
+  } catch {}
 
   // Update associated damage reports as ADVISORY_ISSUED
   if (associatedReportIds && associatedReportIds.length > 0) {
@@ -521,6 +768,9 @@ export function submitDonation(data: {
   if (typeof window !== 'undefined') {
     localStorage.setItem(DONATIONS_KEY, JSON.stringify(updated))
   }
+  try {
+    supabase.from('relief_donations').upsert(toSupabaseDonation(newDonation)).then(() => {})
+  } catch {}
 
   notifyDonations()
   return newDonation
@@ -579,6 +829,11 @@ export function clearAllIncidentAndReliefData() {
     localStorage.removeItem(SEQ_DAMAGE_REPORT_KEY)
     localStorage.removeItem(SEQ_ADVISORY_KEY)
   }
+  try {
+    supabase.from('relief_donations').delete().neq('id', '_dummy_').then(() => {})
+    supabase.from('authority_advisories').delete().neq('id', '_dummy_').then(() => {})
+    supabase.from('citizen_damage_reports').delete().neq('id', '_dummy_').then(() => {})
+  } catch {}
   notifyReports()
   notifyAdvisories()
   notifyDonations()
