@@ -583,3 +583,45 @@ label {
     gap: 10px;
   }
 }
+
+/* ─── High Performance & Smooth 60/120fps Animation Tuning ────── */
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+html, body, button, a, input, select, textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* GPU promotion for hardware accelerated smoothness */
+.bento-card,
+.btn-shiny,
+.btn-glass {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Mobile blur optimization: reduces GPU fillrate bottlenecks */
+@media (max-width: 768px) {
+  .bento-card,
+  .glass-panel,
+  .riskmap-controls-bar,
+  .executive-topbar,
+  .mobile-header-bar {
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+  }
+}
+
+/* Reduced motion preference respect */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

@@ -2,12 +2,9 @@ import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
-  Lock, ShieldCheck, ArrowRight, UserPlus, LogIn,
-  Sparkles, X, Radio, HardHat, Check
+  Lock, ShieldCheck, ArrowRight, UserPlus, LogIn, X
 } from 'lucide-react'
-import { useAuth, type UserRole, ROLE_PRESETS } from '../hooks/useAuth'
-import { playClickSound, playSuccessSound } from '../utils/audioFeedback'
-import { useToast } from '../context/ToastContext'
+import { playClickSound } from '../utils/audioFeedback'
 
 interface AuthGateModalProps {
   isOpen: boolean
@@ -23,8 +20,6 @@ export default function AuthGateModal({
   featureTitle = 'Protected Emergency System',
 }: AuthGateModalProps) {
   const navigate = useNavigate()
-  const { loginAsRole } = useAuth()
-  const toast = useToast()
 
   if (!isOpen) return null
 
@@ -32,15 +27,6 @@ export default function AuthGateModal({
     playClickSound()
     onClose()
     navigate(`/auth?tab=${tab}&redirect=${encodeURIComponent(targetPath)}`)
-  }
-
-  const handleOneClickRole = (role: UserRole) => {
-    playSuccessSound()
-    loginAsRole(role)
-    const preset = ROLE_PRESETS[role]
-    toast.success('Clearance Granted', `Active session: ${preset.name}`)
-    onClose()
-    navigate(targetPath)
   }
 
   return (
@@ -166,68 +152,6 @@ export default function AuthGateModal({
               <UserPlus size={15} color="#34D399" />
               <span>Create New Citizen Account</span>
             </motion.button>
-          </div>
-
-          {/* 1-Click Role Quick Pass */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: 12,
-            padding: '12px 14px',
-          }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--pri-neon)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Sparkles size={12} /> OR FAST 1-CLICK DEMO CLEARANCE:
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              <button
-                onClick={() => handleOneClickRole('citizen')}
-                style={{
-                  background: 'rgba(16, 185, 129, 0.12)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                  color: '#34D399',
-                  borderRadius: 8,
-                  padding: '7px 8px',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                }}
-              >
-                Resident
-              </button>
-              <button
-                onClick={() => handleOneClickRole('bbmp')}
-                style={{
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  color: '#F87171',
-                  borderRadius: 8,
-                  padding: '7px 8px',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                }}
-              >
-                BBMP Lead
-              </button>
-              <button
-                onClick={() => handleOneClickRole('ksndmc')}
-                style={{
-                  background: 'rgba(59, 130, 246, 0.12)',
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
-                  color: '#60A5FA',
-                  borderRadius: 8,
-                  padding: '7px 8px',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                }}
-              >
-                KSNDMC
-              </button>
-            </div>
           </div>
         </motion.div>
       </div>

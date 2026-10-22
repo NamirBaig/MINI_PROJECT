@@ -6,7 +6,7 @@ import {
   ArrowRight, Sparkles, CheckCircle2, Radio, HardHat, Building2,
   ChevronRight, Compass, Phone, MapPin
 } from 'lucide-react'
-import { useAuth, type UserRole } from '../hooks/useAuth'
+import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../context/ToastContext'
 import { playClickSound, playSuccessSound } from '../utils/audioFeedback'
 
@@ -24,7 +24,7 @@ export default function Auth() {
   const redirectPath = searchParams.get('redirect') || '/dashboard'
   const initialTab = (searchParams.get('tab') === 'signup') ? 'signup' : 'login'
 
-  const { signIn, signUp, signInWithGoogle, loginAsRole } = useAuth()
+  const { signIn, signUp, signInWithGoogle } = useAuth()
   const toast = useToast()
 
   const [tab, setTab] = useState<Tab>(initialTab)
@@ -37,19 +37,6 @@ export default function Auth() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-
-  const handleRoleSelect = (role: UserRole) => {
-    playSuccessSound()
-    loginAsRole(role)
-    const titles: Record<UserRole, string> = {
-      citizen: 'Priya Ramanathan (Resident)',
-      ksndmc: 'Dr. K. S. Murthy (KSNDMC Officer)',
-      bbmp: 'Er. Ramesh Gowda (BBMP Relief Lead)',
-      hospital: 'Dr. Shalini Hegde (Hospital Coordinator)',
-    }
-    toast.success('Authenticated Successfully', `Active session: ${titles[role]}`)
-    navigate(redirectPath, { replace: true })
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -207,139 +194,102 @@ export default function Auth() {
             Enterprise disaster intelligence for Greater Bengaluru. Live KSNDMC telemetric sensor grids, IISc hydrological models, and real-time response logistics.
           </p>
 
-          {/* Quick 1-Click Role Logins */}
-          <div style={{ marginTop: 20 }}>
+          {/* Key Disaster Resilience Features */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 10 }}>
             <div style={{
-              fontSize: 12,
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: 1,
-              color: 'var(--pri-neon)',
-              marginBottom: 12,
               display: 'flex',
-              alignItems: 'center',
-              gap: 8,
+              alignItems: 'flex-start',
+              gap: 14,
+              padding: '14px 16px',
+              borderRadius: 14,
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
             }}>
-              <Sparkles size={14} /> Official Bengaluru Operations Access:
+              <div style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: 'rgba(16, 185, 129, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#34D399',
+                flexShrink: 0,
+              }}>
+                <Radio size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#ffffff', marginBottom: 2 }}>
+                  Real-Time Sensor & Radar Grid
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)', lineHeight: 1.4 }}>
+                  Synchronized with 842 KSNDMC weather stations, automated lake gauges, and BBMP underpasses.
+                </div>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {/* Role 1: Citizen */}
-              <motion.button
-                whileHover={{ scale: 1.015, x: 4, background: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.5)' }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleRoleSelect('citizen')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 14,
-                  padding: '12px 16px',
-                  borderRadius: 12,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.2s',
-                }}
-              >
-                <div style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 10,
-                  background: 'rgba(16, 185, 129, 0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#34D399',
-                  flexShrink: 0,
-                }}>
-                  <User size={20} />
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 14,
+              padding: '14px 16px',
+              borderRadius: 14,
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+            }}>
+              <div style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: 'rgba(59, 130, 246, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#60A5FA',
+                flexShrink: 0,
+              }}>
+                <ShieldCheck size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#ffffff', marginBottom: 2 }}>
+                  Unified Disaster Response Architecture
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#ffffff' }}>Priya Ramanathan (Resident)</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)' }}>Citizen Preparedness & Family Evacuation Bag</div>
+                <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)', lineHeight: 1.4 }}>
+                  Seamless coordination between resident distress alerts and municipal quick-response emergency fleets.
                 </div>
-                <ChevronRight size={16} color="#34D399" />
-              </motion.button>
+              </div>
+            </div>
 
-              {/* Role 2: KSNDMC Telemetry Officer */}
-              <motion.button
-                whileHover={{ scale: 1.015, x: 4, background: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.5)' }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleRoleSelect('ksndmc')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 14,
-                  padding: '12px 16px',
-                  borderRadius: 12,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.2s',
-                }}
-              >
-                <div style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 10,
-                  background: 'rgba(59, 130, 246, 0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#60A5FA',
-                  flexShrink: 0,
-                }}>
-                  <Radio size={20} />
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 14,
+              padding: '14px 16px',
+              borderRadius: 14,
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+            }}>
+              <div style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: 'rgba(245, 158, 11, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#FBBF24',
+                flexShrink: 0,
+              }}>
+                <Building2 size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#ffffff', marginBottom: 2 }}>
+                  Live Hospital Beds & Municipal Logistics
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#ffffff' }}>Dr. K. S. Murthy (KSNDMC Officer)</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)' }}>Telemetry Grid & Yelahanka TRG Stations</div>
+                <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)', lineHeight: 1.4 }}>
+                  Dynamic bed tracking, medical supply reserves, and potable water tanker dispatch monitoring.
                 </div>
-                <ChevronRight size={16} color="#60A5FA" />
-              </motion.button>
-
-              {/* Role 3: BBMP Disaster Lead */}
-              <motion.button
-                whileHover={{ scale: 1.015, x: 4, background: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.5)' }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleRoleSelect('bbmp')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 14,
-                  padding: '12px 16px',
-                  borderRadius: 12,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.2s',
-                }}
-              >
-                <div style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 10,
-                  background: 'rgba(245, 158, 11, 0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#FBBF24',
-                  flexShrink: 0,
-                }}>
-                  <HardHat size={20} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#ffffff' }}>Er. Ramesh Gowda (BBMP Lead)</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)' }}>Stormwater Drain Works & Resource Logistics</div>
-                </div>
-                <ChevronRight size={16} color="#FBBF24" />
-              </motion.button>
+              </div>
             </div>
           </div>
         </div>
@@ -578,14 +528,14 @@ export default function Auth() {
 
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--tx-dim)' }}>
-                {tab === 'login' ? 'Email or Username (e.g. bbmp / ksndmc)' : 'Email Address'}
+                {tab === 'login' ? 'Email or Authority Username (e.g. authority)' : 'Email Address'}
               </label>
               <div style={{ position: 'relative' }}>
                 <Mail size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-muted)' }} />
                 <input
                   type="text"
                   required
-                  placeholder={tab === 'login' ? "bbmp, ksndmc, hospital, or resident@email.com" : "resident@bengaluru.in"}
+                  placeholder={tab === 'login' ? "authority (Disaster Command) or resident@email.com" : "resident@bengaluru.in"}
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   style={{
@@ -651,68 +601,38 @@ export default function Auth() {
                 background: 'rgba(16, 185, 129, 0.06)',
                 border: '1px solid rgba(16, 185, 129, 0.25)',
                 borderRadius: 10,
-                padding: '10px 12px',
+                padding: '12px 14px',
                 fontSize: 12,
               }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#34D399', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Sparkles size={13} /> Official Authority Fixed Credentials (1-Click Fill):
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#34D399', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ShieldCheck size={14} /> Official Disaster Authority Command Login:
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 6 }}>
-                  <button
-                    type="button"
-                    onClick={() => handleAutoFill('bbmp', 'bbmp1234', 'BBMP Relief Lead')}
-                    style={{
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#F87171',
-                      borderRadius: 6,
-                      padding: '5px 8px',
-                      fontSize: 11,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <div>BBMP Lead</div>
-                    <div style={{ fontSize: 9.5, color: 'var(--tx-muted)', fontWeight: 400 }}>bbmp / bbmp1234</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAutoFill('ksndmc', 'ksndmc1234', 'KSNDMC Officer')}
-                    style={{
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#60A5FA',
-                      borderRadius: 6,
-                      padding: '5px 8px',
-                      fontSize: 11,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <div>KSNDMC Officer</div>
-                    <div style={{ fontSize: 9.5, color: 'var(--tx-muted)', fontWeight: 400 }}>ksndmc / ksndmc1234</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAutoFill('hospital', 'hospital1234', 'Hospital Coordinator')}
-                    style={{
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#34D399',
-                      borderRadius: 6,
-                      padding: '5px 8px',
-                      fontSize: 11,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <div>Hospital Lead</div>
-                    <div style={{ fontSize: 9.5, color: 'var(--tx-muted)', fontWeight: 400 }}>hospital / hospital1234</div>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAutoFill('authority', 'authority1234', 'Unified Disaster Command')}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    color: '#FFFFFF',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div>
+                    <div style={{ color: '#34D399', fontSize: 12 }}>Unified Authority Operations Command</div>
+                    <div style={{ fontSize: 10, color: 'var(--tx-muted)', fontWeight: 400 }}>Click to fill fixed credentials: authority / authority1234</div>
+                  </div>
+                  <ChevronRight size={15} color="#34D399" />
+                </button>
               </div>
             )}
 

@@ -78,6 +78,7 @@ const UNDERPASS_HOTSPOTS = [
 
 export default function RiskMap() {
   const { currentRole } = useAuth()
+  const isAuthority = currentRole !== 'citizen'
   const toast = useToast()
 
   const [activeLayer, setActiveLayer] = useState<LayerType>('floodRisk')
@@ -117,12 +118,9 @@ export default function RiskMap() {
   }
 
   const handleRoleAction = () => {
-    if (currentRole === 'ksndmc') {
+    if (isAuthority) {
       playAlertSound()
-      toast.success('KSNDMC Basin Advisory Transmitted', `Relayed ${selectedZone.name} hydro telemetry to BBMP & SDRF`)
-    } else if (currentRole === 'bbmp') {
-      playAlertSound()
-      toast.alert('QRT Pump & Barricade Deployed', `Dispatched mobile dewatering pump truck to ${selectedZone.name} (${selectedZone.ward} Ward)`)
+      toast.success('Disaster Command Sector Dispatch', `Transmitted hydro alert & deployed QRT dewatering unit to ${selectedZone.name} (${selectedZone.ward} Ward)`)
     } else {
       playSuccessSound()
       toast.info('Nearest Ward Shelter Located', `${selectedZone.name}: BBMP Ward Community Hall (0.8km). Safe via main arterial road.`)
@@ -899,10 +897,8 @@ export default function RiskMap() {
                   className="btn-shiny"
                   style={{ flex: 1, minWidth: 150, padding: '10px 14px', fontSize: 12, justifyContent: 'center' }}
                 >
-                  {currentRole === 'ksndmc' ? (
-                    <><Radio size={14} /> Transmit Hydro Basin Advisory</>
-                  ) : currentRole === 'bbmp' ? (
-                    <><Radio size={14} /> Deploy Sector Pump & Barricade</>
+                  {isAuthority ? (
+                    <><Radio size={14} /> Authority: Deploy QRT Pumps & Advisory</>
                   ) : (
                     <><ShieldCheck size={14} /> Find Safe Route & Shelter</>
                   )}

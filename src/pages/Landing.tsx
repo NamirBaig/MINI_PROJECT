@@ -13,7 +13,6 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../context/ToastContext'
 import { playClickSound, playSuccessSound } from '../utils/audioFeedback'
 import AnimatedWeatherBadge, { AnimatedWeatherIcon, AnimatedWeatherBoxCanvas } from '../components/AnimatedWeatherBadge'
-import AuthGateModal from '../components/AuthGateModal'
 
 interface LandingProps {
   weatherData: WeatherData
@@ -54,14 +53,9 @@ function AnimatedCounter({ target, suffix = '', duration = 1600, isFloat = false
 
 export default function Landing({ weatherData }: LandingProps) {
   const navigate = useNavigate()
-  const { user, loginAsRole, signOut } = useAuth()
+  const { user, signOut } = useAuth()
   const toast = useToast()
   const [activeTab, setActiveTab] = useState<'telemetry' | 'replay' | 'research'>('telemetry')
-  const [gateState, setGateState] = useState<{ isOpen: boolean; targetPath: string; featureTitle: string }>({
-    isOpen: false,
-    targetPath: '/dashboard',
-    featureTitle: 'Disaster Telemetry Dashboard',
-  })
   const headlineWords = ['PREPARE', 'BEFORE', 'THE', 'CRISIS.']
 
   const floodColor = weatherData.floodRiskToday > 60 ? '#EF4444' : weatherData.floodRiskToday > 35 ? '#F59E0B' : '#10B981'
@@ -74,13 +68,6 @@ export default function Landing({ weatherData }: LandingProps) {
     } else {
       navigate(path)
     }
-  }
-
-  const handleQuickCitizenLogin = () => {
-    playSuccessSound()
-    loginAsRole('citizen')
-    toast.success('Resident Session Started', 'Logged in as Priya Ramanathan')
-    navigate('/dashboard')
   }
 
   const handleSignOut = async () => {
@@ -802,14 +789,6 @@ export default function Landing({ weatherData }: LandingProps) {
           </div>
         </div>
       </footer>
-
-      {/* ─── Auth Guard Modal for Unauthenticated Navigation ────────────── */}
-      <AuthGateModal
-        isOpen={gateState.isOpen}
-        onClose={() => setGateState(prev => ({ ...prev, isOpen: false }))}
-        targetPath={gateState.targetPath}
-        featureTitle={gateState.featureTitle}
-      />
     </div>
   )
 }

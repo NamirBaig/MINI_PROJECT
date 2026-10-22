@@ -42,6 +42,7 @@ const YELAHANKA_SPOTS = [
 
 export default function YelahankaHub() {
   const { currentRole } = useAuth()
+  const isAuthority = currentRole !== 'citizen'
   const toast = useToast()
   const [activeTab, setActiveTab] = useState<'simulator' | 'lakes'>('simulator')
   const [floodDepthCm, setFloodDepthCm] = useState<number>(120)
@@ -168,8 +169,8 @@ export default function YelahankaHub() {
 
       {/* ─── Role Authority Action Banner ─────────────────────── */}
       <div style={{
-        background: currentRole === 'bbmp' ? 'rgba(239, 68, 68, 0.12)' : currentRole === 'ksndmc' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-        border: currentRole === 'bbmp' ? '1px solid rgba(239, 68, 68, 0.35)' : currentRole === 'ksndmc' ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid rgba(16, 185, 129, 0.35)',
+        background: isAuthority ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+        border: isAuthority ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(16, 185, 129, 0.35)',
         borderRadius: 14,
         padding: '14px 18px',
         display: 'flex',
@@ -179,17 +180,13 @@ export default function YelahankaHub() {
         gap: 12,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <ShieldCheck size={20} color={currentRole === 'bbmp' ? '#EF4444' : currentRole === 'ksndmc' ? '#60A5FA' : '#34D399'} />
+          <ShieldCheck size={20} color={isAuthority ? '#EF4444' : '#34D399'} />
           <div>
             <div style={{ fontSize: 13, fontWeight: 800, color: '#FFFFFF' }}>
-              {currentRole === 'ksndmc' && 'KSNDMC Telemetry Mode: Amanikere Hydrological Buffer Control'}
-              {currentRole === 'bbmp' && 'BBMP Relief Dispatch Mode: Kendriya Vihar QRT Inundation Response'}
-              {currentRole === 'citizen' && 'Resident Protection Mode: Kendriya Vihar Safety & Evacuation'}
+              {isAuthority ? 'Disaster Authority Command Mode: Amanikere Sluice & NDRF Deployment' : 'Resident Protection Mode: Kendriya Vihar Safety & Evacuation'}
             </div>
             <div style={{ fontSize: 11.5, color: 'var(--tx-muted)' }}>
-              {currentRole === 'ksndmc' && 'Authority to recommend sluice gate pre-release into Yelahanka stormwater channels'}
-              {currentRole === 'bbmp' && 'Authority to dispatch NDRF rescue boats & 500 GPM de-watering pump trailers'}
-              {currentRole === 'citizen' && 'Live household water simulator to check basement parking and flat safety'}
+              {isAuthority ? 'Execute coordinated sluice discharge and dispatch NDRF inflatable boats & submersible pumps' : 'Live household water simulator to check basement parking and flat safety'}
             </div>
           </div>
         </div>
@@ -198,12 +195,9 @@ export default function YelahankaHub() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => {
-            if (currentRole === 'ksndmc') {
-              playSuccessSound()
-              toast.success('Amanikere Sluice Advisory Issued', 'Recommended 15% pre-release into primary storm canal')
-            } else if (currentRole === 'bbmp') {
+            if (isAuthority) {
               playSirenSound()
-              toast.success('NDRF Inflatables Deployed', '2 Rescue craft dispatched to Kendriya Vihar Ramps')
+              toast.success('Disaster Command Authorized', 'Dispatched 2 NDRF rescue boats & opened Amanikere sluice 15%')
             } else {
               playAlertSound()
               toast.alert('Resident Evacuation Requested', 'Relayed flat coordinates to BBMP Control Cell (1533)')
@@ -212,9 +206,7 @@ export default function YelahankaHub() {
           className="btn-shiny"
           style={{ padding: '8px 16px', fontSize: 12, fontWeight: 800 }}
         >
-          {currentRole === 'ksndmc' && 'Authorize Sluice Discharge'}
-          {currentRole === 'bbmp' && 'Deploy Kendriya Vihar Boats'}
-          {currentRole === 'citizen' && 'Request Resident Pickup'}
+          {isAuthority ? 'Deploy NDRF Boats & Canal Sluice' : 'Request Resident Pickup'}
         </motion.button>
       </div>
 

@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 import { saveUserRecord, registerKnownEmail } from '../services/requestService'
 
-export type UserRole = 'citizen' | 'ksndmc' | 'bbmp' | 'hospital'
+export type UserRole = 'citizen' | 'authority' | 'ksndmc' | 'bbmp' | 'hospital'
 
 export interface SafeGroundUserMetadata {
   full_name: string
@@ -17,15 +17,42 @@ export interface SafeGroundUserMetadata {
 
 export function getActiveRole(user: any): UserRole {
   if (!user) return 'citizen'
-  if (user.user_metadata?.role_key) return user.user_metadata.role_key as UserRole
+  const roleKey = user.user_metadata?.role_key
+  if (roleKey === 'authority' || roleKey === 'bbmp' || roleKey === 'ksndmc' || roleKey === 'hospital') {
+    return 'authority'
+  }
   const email = (user.email || '').toLowerCase()
-  if (email.includes('hospital') || email.includes('hegde')) return 'hospital'
-  if (email.includes('ksndmc') || email.includes('murthy')) return 'ksndmc'
-  if (email.includes('bbmp') || email.includes('gowda')) return 'bbmp'
+  if (
+    email.includes('authority') ||
+    email.includes('bbmp') ||
+    email.includes('ksndmc') ||
+    email.includes('hospital') ||
+    email.includes('hegde') ||
+    email.includes('murthy') ||
+    email.includes('gowda') ||
+    email.endsWith('@safeground.blr') ||
+    email.includes('gov.in') ||
+    email.includes('nic.in')
+  ) {
+    return 'authority'
+  }
   const roleStr = (user.user_metadata?.role || '').toLowerCase()
-  if (roleStr.includes('hospital') || roleStr.includes('triage') || roleStr.includes('doctor')) return 'hospital'
-  if (roleStr.includes('ksndmc') || roleStr.includes('telemetry')) return 'ksndmc'
-  if (roleStr.includes('bbmp') || roleStr.includes('relief')) return 'bbmp'
+  if (
+    roleStr.includes('authority') ||
+    roleStr.includes('command') ||
+    roleStr.includes('lead') ||
+    roleStr.includes('officer') ||
+    roleStr.includes('coordinator') ||
+    roleStr.includes('hospital') ||
+    roleStr.includes('triage') ||
+    roleStr.includes('doctor') ||
+    roleStr.includes('ksndmc') ||
+    roleStr.includes('telemetry') ||
+    roleStr.includes('bbmp') ||
+    roleStr.includes('relief')
+  ) {
+    return 'authority'
+  }
   return 'citizen'
 }
 
@@ -56,62 +83,80 @@ export const ROLE_PRESETS: Record<UserRole, { email: string; name: string; title
     title: 'Bengaluru Resident',
     dept: 'Citizen Preparedness',
   },
+  authority: {
+    email: 'authority@safeground.blr',
+    name: 'Bengaluru Disaster Command',
+    title: 'Disaster Operations Authority',
+    dept: 'Integrated Emergency & Disaster Command (BBMP, KSNDMC & Health)',
+  },
   ksndmc: {
-    email: 'k.murthy@ksndmc.kar.nic.in',
-    name: 'Dr. K. S. Murthy',
-    title: 'KSNDMC Telemetry Officer',
-    dept: 'Karnataka Disaster Monitoring Centre',
+    email: 'authority@safeground.blr',
+    name: 'Bengaluru Disaster Command',
+    title: 'Disaster Operations Authority',
+    dept: 'Integrated Emergency & Disaster Command (BBMP, KSNDMC & Health)',
   },
   bbmp: {
-    email: 'ramesh.gowda@bbmp.gov.in',
-    name: 'Er. Ramesh Gowda',
-    title: 'BBMP Disaster Relief Lead',
-    dept: 'Stormwater Drain & Relief Dept',
+    email: 'authority@safeground.blr',
+    name: 'Bengaluru Disaster Command',
+    title: 'Disaster Operations Authority',
+    dept: 'Integrated Emergency & Disaster Command (BBMP, KSNDMC & Health)',
   },
   hospital: {
-    email: 'shalini.hegde@victoria.blr.gov.in',
-    name: 'Dr. Shalini Hegde',
-    title: 'Chief Hospital Coordinator',
-    dept: 'Bengaluru Emergency Hospital Network',
+    email: 'authority@safeground.blr',
+    name: 'Bengaluru Disaster Command',
+    title: 'Disaster Operations Authority',
+    dept: 'Integrated Emergency & Disaster Command (BBMP, KSNDMC & Health)',
   },
 }
 
 export const FIXED_AUTHORITIES = {
+  authority: {
+    email: 'authority@safeground.blr',
+    username: 'authority',
+    password: 'authority1234',
+    name: 'Bengaluru Disaster Command',
+    role: 'Disaster Operations Authority',
+    dept: 'Integrated Emergency & Disaster Command (BBMP, KSNDMC & Health)',
+    badge: 'COMMAND',
+    role_key: 'authority' as UserRole,
+    zone: 'All Bengaluru Zones (Grid Command)',
+    phone: '1533 / 080-22221188',
+  },
   bbmp: {
-    email: 'bbmp@safeground.blr',
+    email: 'authority@safeground.blr',
     username: 'bbmp',
     password: 'bbmp1234',
-    name: 'Er. Ramesh Gowda',
-    role: 'BBMP Disaster Relief Lead',
-    dept: 'Stormwater Drain & Relief Dept',
-    badge: 'BBMP-COMMANDER',
-    role_key: 'bbmp' as UserRole,
-    zone: 'Bengaluru Central & East',
-    phone: '+91 80222 21188',
+    name: 'Bengaluru Disaster Command',
+    role: 'Disaster Operations Authority',
+    dept: 'Integrated Emergency & Disaster Command (BBMP, KSNDMC & Health)',
+    badge: 'COMMAND',
+    role_key: 'authority' as UserRole,
+    zone: 'All Bengaluru Zones (Grid Command)',
+    phone: '1533 / 080-22221188',
   },
   ksndmc: {
-    email: 'ksndmc@safeground.blr',
+    email: 'authority@safeground.blr',
     username: 'ksndmc',
     password: 'ksndmc1234',
-    name: 'Dr. K. S. Murthy',
-    role: 'KSNDMC Telemetry Officer',
-    dept: 'Karnataka Disaster Monitoring Centre',
-    badge: 'KSNDMC-OFFICER',
-    role_key: 'ksndmc' as UserRole,
-    zone: 'Bengaluru Urban & Rural',
-    phone: '+91 80223 40676',
+    name: 'Bengaluru Disaster Command',
+    role: 'Disaster Operations Authority',
+    dept: 'Integrated Emergency & Disaster Command (BBMP, KSNDMC & Health)',
+    badge: 'COMMAND',
+    role_key: 'authority' as UserRole,
+    zone: 'All Bengaluru Zones (Grid Command)',
+    phone: '1533 / 080-22221188',
   },
   hospital: {
-    email: 'hospital@safeground.blr',
+    email: 'authority@safeground.blr',
     username: 'hospital',
     password: 'hospital1234',
-    name: 'Dr. Shalini Hegde',
-    role: 'Chief Medical & Bed Coordinator',
-    dept: 'Bengaluru Hospital Disaster Response',
-    badge: 'HOSPITAL-TRIAGE',
-    role_key: 'bbmp' as UserRole,
-    zone: 'Yelahanka & North Hospitals',
-    phone: '+91 80285 61122',
+    name: 'Bengaluru Disaster Command',
+    role: 'Disaster Operations Authority',
+    dept: 'Integrated Emergency & Disaster Command (BBMP, KSNDMC & Health)',
+    badge: 'COMMAND',
+    role_key: 'authority' as UserRole,
+    zone: 'All Bengaluru Zones (Grid Command)',
+    phone: '1533 / 080-22221188',
   },
   citizen: {
     email: 'citizen@safeground.blr',
@@ -194,10 +239,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const email = (mockUser.email || '').toLowerCase()
     const isAuthority =
+      email.includes('authority') ||
       email.endsWith('@safeground.blr') ||
       email.includes('bbmp.gov.in') ||
       email.includes('ksndmc.kar.nic.in') ||
       email.includes('victoria.blr.gov.in') ||
+      mockUser.user_metadata?.role_key === 'authority' ||
       mockUser.user_metadata?.role_key === 'bbmp' ||
       mockUser.user_metadata?.role_key === 'ksndmc' ||
       mockUser.user_metadata?.role_key === 'hospital'
@@ -215,7 +262,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       fullName: mockUser.user_metadata?.full_name || mockUser.email,
       phone: mockUser.user_metadata?.phone,
       zone: mockUser.user_metadata?.zone,
-      role: mockUser.user_metadata?.role || 'Citizen',
+      role: mockUser.user_metadata?.role || (isAuthority ? 'Disaster Operations Authority' : 'Citizen'),
       provider,
     })
   }
@@ -233,17 +280,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {}
     }
 
-    const preset = ROLE_PRESETS[role]
+    const targetKey: UserRole = role === 'citizen' ? 'citizen' : 'authority'
+    const preset = ROLE_PRESETS[targetKey] || ROLE_PRESETS.authority
     const mockUser: any = {
-      id: `role-${role}-${Date.now()}`,
+      id: `role-${targetKey}-${Date.now()}`,
       email: preset.email,
       user_metadata: {
         full_name: preset.name,
         role: preset.title,
         department: preset.dept,
-        badge: role.toUpperCase(),
-        role_key: role,
-        zone: role === 'bbmp' ? 'Bengaluru Central / East' : role === 'ksndmc' ? 'Bengaluru Urban & Rural' : 'Yelahanka',
+        badge: targetKey === 'citizen' ? 'RESIDENT' : 'COMMAND',
+        role_key: targetKey,
+        zone: targetKey === 'citizen' ? 'Yelahanka' : 'All Bengaluru Zones (Grid Command)',
       },
       aud: 'authenticated',
       role: 'authenticated',

@@ -62,6 +62,35 @@ const ROLE_ALERTS: Record<UserRole, Array<{ id: string; title: string; sev: stri
       action: 'Free drinking water kiosks are open at BMTC and KSRTC bus stands.',
     },
   ],
+  authority: [
+    {
+      id: 'a1',
+      title: 'Amanikere Lake Inflow Surge: 8.4 m³/s • Sluice Pre-Release Authorized',
+      sev: 'HIGH',
+      zone: 'Hebbal-Yelahanka Hydrological Basin',
+      time: '5 mins ago',
+      detail: 'AWS telemetry station 204 indicates water level reaching 94.2% capacity. Sluice gate pre-release advisory active to prevent residential embankment flooding.',
+      action: 'Authorize 20% discharge through secondary stormwater overflow canal.',
+    },
+    {
+      id: 'a2',
+      title: 'NDRF 10th Battalion & 18 Boats Pre-Positioned at Yelahanka & EcoSpace',
+      sev: 'HIGH',
+      zone: 'Kendriya Vihar & Outer Ring Road',
+      time: '15 mins ago',
+      detail: '6 motorized inflatable rescue craft and 24 personnel deployed at Yelahanka Air Force base perimeter for rapid flood response.',
+      action: 'Keep quick response units on standby for residential basements.',
+    },
+    {
+      id: 'a3',
+      title: 'Citywide Hospital ICU Surge Quota & 46 Dewatering Pumps Active',
+      sev: 'MODERATE',
+      zone: 'Greater Bengaluru Metropolitan Area',
+      time: '35 mins ago',
+      detail: '24 emergency ICU beds reserved at Victoria Hospital, 12 BBMP relief shelters provisioned with cots and rations.',
+      action: 'Maintain automated telemetry logging at 60-second intervals.',
+    },
+  ],
   ksndmc: [
     {
       id: 'k1',
@@ -152,7 +181,8 @@ const ROLE_ALERTS: Record<UserRole, Array<{ id: string; title: string; sev: stri
 }
 
 export default function Dashboard({ weatherData }: DashboardProps) {
-  const { user, currentRole, loginAsRole } = useAuth()
+  const { user, currentRole } = useAuth()
+  const isAuthority = currentRole !== 'citizen'
   const toast = useToast()
 
   const [expandedAlert, setExpandedAlert] = useState<string | null>('c1')
@@ -196,15 +226,45 @@ export default function Dashboard({ weatherData }: DashboardProps) {
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-  const citizenName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Resident'
-  const userRole = user?.user_metadata?.role || (currentRole === 'bbmp' ? 'BBMP Disaster Relief Lead' : currentRole === 'ksndmc' ? 'KSNDMC Telemetry Officer' : 'Bengaluru Resident')
+  const citizenName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || (isAuthority ? 'Disaster Commander' : 'Resident')
+  const userRole = user?.user_metadata?.role || (isAuthority ? 'Disaster Operations Authority' : 'Bengaluru Resident')
 
   // Computed risk
   const overallRisk = Math.round((weatherData.floodRiskToday * 0.65 + weatherData.heatRiskToday * 0.35))
   const riskLevel = overallRisk >= 70 ? 'CRITICAL' : overallRisk >= 50 ? 'HIGH' : overallRisk >= 35 ? 'MODERATE' : 'LOW'
   const riskMeta = SEVERITY_CONFIG[riskLevel]
 
-  const alerts = ROLE_ALERTS[currentRole] || ROLE_ALERTS.citizen
+  const alerts = isAuthority
+    ? [
+        {
+          id: 'b1',
+          title: 'NDRF 10th Battalion Pre-Positioned at Yelahanka',
+          sev: 'HIGH',
+          zone: 'Kendriya Vihar & Chowdeshwari Nagar',
+          time: '15 mins ago',
+          detail: '6 motorized inflatable rescue craft and 24 personnel deployed at Yelahanka Air Force base perimeter for rapid flood response.',
+          action: 'Keep quick response units on standby for residential basements.',
+        },
+        {
+          id: 'k1',
+          title: 'Amanikere Lake Inflow Rate: 8.4 m³/s Surge',
+          sev: 'HIGH',
+          zone: 'Hebbal-Yelahanka Hydrological Basin',
+          time: '8 mins ago',
+          detail: 'AWS telemetry station 204 indicates water level reaching 94.2% capacity. Sluice gate pre-release advisory recommended.',
+          action: 'Authorize 20% discharge through secondary stormwater overflow canal.',
+        },
+        {
+          id: 'h1',
+          title: 'Victoria & Bowring Hospital ICU Bed Surge Capacity',
+          sev: 'MODERATE',
+          zone: 'Central City Medical Belt',
+          time: '25 mins ago',
+          detail: '24 emergency ICU beds and 40 oxygen-supported cots reserved for flood trauma admissions from North and East zones.',
+          action: 'Health triage desk monitoring live incoming citizen requests.',
+        },
+      ]
+    : ROLE_ALERTS.citizen
 
   const handleAcknowledgeAlert = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -331,9 +391,9 @@ export default function Dashboard({ weatherData }: DashboardProps) {
               borderRadius: 20,
               fontSize: 12,
               fontWeight: 700,
-              background: currentRole === 'bbmp' ? 'rgba(239, 68, 68, 0.15)' : currentRole === 'ksndmc' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-              color: currentRole === 'bbmp' ? '#F87171' : currentRole === 'ksndmc' ? '#60A5FA' : '#34D399',
-              border: `1px solid ${currentRole === 'bbmp' ? 'rgba(239, 68, 68, 0.3)' : currentRole === 'ksndmc' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+              background: isAuthority ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+              color: isAuthority ? '#F87171' : '#34D399',
+              border: `1px solid ${isAuthority ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
             }}>
               <ShieldCheck size={14} /> {userRole}
             </span>
@@ -357,9 +417,7 @@ export default function Dashboard({ weatherData }: DashboardProps) {
             {greeting}, {citizenName}
           </h1>
           <p style={{ margin: '4px 0 0', color: 'var(--tx-muted)', fontSize: 14 }}>
-            {currentRole === 'citizen' && 'Resident Preparedness & Neighborhood Flood Intelligence'}
-            {currentRole === 'ksndmc' && 'Karnataka State Natural Disaster Monitoring Centre • Real-time Hydro-Meteorological Grid'}
-            {currentRole === 'bbmp' && 'Stormwater Drain & Municipal Relief Dispatch • Tactical Response Cell'}
+            {!isAuthority ? 'Resident Preparedness & Neighborhood Flood Intelligence' : 'Unified Bengaluru Disaster Management Authority • Tactical Command & Hydro Grid'}
           </p>
         </div>
 
@@ -410,7 +468,7 @@ export default function Dashboard({ weatherData }: DashboardProps) {
       {/* ─── ROLE-SPECIFIC INTERACTIVE OPERATIONS COCKPIT ──────── */}
       <div>
         <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--pri-neon)', marginBottom: 8, letterSpacing: 0.6, textTransform: 'uppercase' }}>
-          AUTHORITY OPERATIONS: {currentRole.toUpperCase()} MANDATE
+          {isAuthority ? 'AUTHORITY OPERATIONS: UNIFIED BENGALURU DISASTER COMMAND' : 'RESIDENT EMERGENCY COCKPIT'}
         </div>
 
         {/* 1. CITIZEN COCKPIT */}
@@ -540,89 +598,8 @@ export default function Dashboard({ weatherData }: DashboardProps) {
           </div>
         )}
 
-        {/* 2. KSNDMC COCKPIT */}
-        {currentRole === 'ksndmc' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-            <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => { playAlertSound(); setBulletinModalOpen(true); }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
-                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.05) 100%)',
-                border: '1px solid rgba(239, 68, 68, 0.35)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
-              }}
-            >
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(239, 68, 68, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444', flexShrink: 0 }}>
-                <Radio size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#EF4444' }}>Broadcast State Red Alert</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Issue official hydro flash bulletin</div>
-              </div>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => { playClickSound(); setSluiceModalOpen(true); }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
-                background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(14, 116, 144, 0.05) 100%)',
-                border: '1px solid rgba(6, 182, 212, 0.35)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
-              }}
-            >
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(6, 182, 212, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#67E8F9', flexShrink: 0 }}>
-                <Waves size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#67E8F9' }}>Authorize Sluice Release</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Amanikere / Bellandur discharge</div>
-              </div>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleStressTestSpike}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
-                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.05) 100%)',
-                border: '1px solid rgba(245, 158, 11, 0.35)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
-              }}
-            >
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(245, 158, 11, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FBBF24', flexShrink: 0 }}>
-                <Zap size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#FBBF24' }}>Stress-Test Cloudburst</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Simulate +50mm sensor spike</div>
-              </div>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleRadarCalibrate}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.05) 100%)',
-                border: '1px solid rgba(16, 185, 129, 0.35)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
-              }}
-            >
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(16, 185, 129, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#34D399', flexShrink: 0 }}>
-                <Activity size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#34D399' }}>Calibrate Doppler Radar</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Sync 842 AWS stations</div>
-              </div>
-            </motion.button>
-          </div>
-        )}
-
-        {/* 3. BBMP COCKPIT */}
-        {currentRole === 'bbmp' && (
+        {/* 2. UNIFIED AUTHORITY OPERATIONS COCKPIT */}
+        {isAuthority && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
             <motion.button
               whileHover={{ scale: 1.02, y: -2 }}
@@ -639,7 +616,7 @@ export default function Dashboard({ weatherData }: DashboardProps) {
               </div>
               <div>
                 <div style={{ fontSize: 13.5, fontWeight: 800, color: '#EF4444' }}>Dispatch NDRF Boats</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Deploy motorized inflatable craft</div>
+                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Deploy motorized rescue craft</div>
               </div>
             </motion.button>
 
@@ -658,7 +635,45 @@ export default function Dashboard({ weatherData }: DashboardProps) {
               </div>
               <div>
                 <div style={{ fontSize: 13.5, fontWeight: 800, color: '#60A5FA' }}>Deploy 500 GPM Pump</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Dispatch underpass de-watering unit</div>
+                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Dewater flooded underpasses</div>
+              </div>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { playClickSound(); setSluiceModalOpen(true); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
+                background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(14, 116, 144, 0.05) 100%)',
+                border: '1px solid rgba(6, 182, 212, 0.35)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(6, 182, 212, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#67E8F9', flexShrink: 0 }}>
+                <Waves size={22} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#67E8F9' }}>Authorize Sluice Release</div>
+                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Amanikere & Bellandur buffer</div>
+              </div>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { playAlertSound(); setBulletinModalOpen(true); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.05) 100%)',
+                border: '1px solid rgba(239, 68, 68, 0.35)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(239, 68, 68, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444', flexShrink: 0 }}>
+                <Radio size={22} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#EF4444' }}>Broadcast State Red Alert</div>
+                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Issue official hydro bulletin</div>
               </div>
             </motion.button>
 
@@ -696,28 +711,47 @@ export default function Dashboard({ weatherData }: DashboardProps) {
               </div>
               <div>
                 <div style={{ fontSize: 13.5, fontWeight: 800, color: '#FBBF24' }}>Order Traffic Barricade</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Seal flooded service roads</div>
+                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Divert flooded traffic lines</div>
               </div>
             </motion.button>
-          </div>
-        )}
 
-        {/* 4. HOSPITAL COCKPIT */}
-        {currentRole === 'hospital' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.05) 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.35)', color: '#FFFFFF',
-            }}>
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleRadarCalibrate}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.05) 100%)',
+                border: '1px solid rgba(16, 185, 129, 0.35)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
+              }}
+            >
               <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(16, 185, 129, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#34D399', flexShrink: 0 }}>
-                <Building2 size={22} />
+                <Activity size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#34D399' }}>Hospital Bed Dispatch Center</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Live ICU & Emergency Bed Quota (Victoria, Manipal, Yelahanka GH)</div>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#34D399' }}>Calibrate Doppler Radar</div>
+                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Sync 842 AWS stations</div>
               </div>
-            </div>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleStressTestSpike}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.05) 100%)',
+                border: '1px solid rgba(245, 158, 11, 0.35)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(245, 158, 11, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FBBF24', flexShrink: 0 }}>
+                <Zap size={22} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#FBBF24' }}>Stress-Test Cloudburst</div>
+                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>Simulate +50mm hydro surge</div>
+              </div>
+            </motion.button>
           </div>
         )}
 
@@ -826,8 +860,8 @@ export default function Dashboard({ weatherData }: DashboardProps) {
           </>
         )}
 
-        {/* KSNDMC METRIC CARDS */}
-        {currentRole === 'ksndmc' && (
+        {/* UNIFIED AUTHORITY COMMAND METRIC CARDS */}
+        {isAuthority && (
           <>
             <div className="bento-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
@@ -846,14 +880,16 @@ export default function Dashboard({ weatherData }: DashboardProps) {
 
             <div className="bento-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx-muted)', textTransform: 'uppercase' }}>24h Peak Inflow Rate</span>
-                <Droplets size={18} color="#60A5FA" />
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx-muted)', textTransform: 'uppercase' }}>NDRF Rescue Fleet</span>
+                <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 12, color: '#34D399', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                  READY
+                </span>
               </div>
-              <div style={{ fontSize: 34, fontWeight: 800, color: '#60A5FA', lineHeight: 1 }}>
-                38 <span style={{ fontSize: 16, color: 'var(--tx-muted)' }}>mm/h</span>
+              <div style={{ fontSize: 34, fontWeight: 800, color: '#34D399', lineHeight: 1 }}>
+                18 <span style={{ fontSize: 16, color: 'var(--tx-muted)' }}>/ 28 Boats</span>
               </div>
               <div style={{ marginTop: 10, fontSize: 12, color: 'var(--tx-dim)' }}>
-                Doddabommasandra AWS peak catchment inflow
+                Pre-positioned: Kendriya Vihar, EcoSpace & Hebbal
               </div>
             </div>
 
@@ -874,75 +910,14 @@ export default function Dashboard({ weatherData }: DashboardProps) {
 
             <div className="bento-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx-muted)', textTransform: 'uppercase' }}>Doppler Radar Sweep</span>
-                <Activity size={18} color="#34D399" />
-              </div>
-              <div style={{ fontSize: 34, fontWeight: 800, color: '#34D399', lineHeight: 1 }}>
-                128 <span style={{ fontSize: 16, color: 'var(--tx-muted)' }}>RPM</span>
-              </div>
-              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--tx-dim)' }}>
-                BIAL radar: Zero cloudburst signatures detected
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* BBMP METRIC CARDS */}
-        {currentRole === 'bbmp' && (
-          <>
-            <div className="bento-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx-muted)', textTransform: 'uppercase' }}>NDRF Rescue Boats</span>
-                <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 12, color: '#34D399', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                  READY
-                </span>
-              </div>
-              <div style={{ fontSize: 34, fontWeight: 800, color: '#34D399', lineHeight: 1 }}>
-                18 <span style={{ fontSize: 16, color: 'var(--tx-muted)' }}>/ 28 Boats</span>
-              </div>
-              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--tx-dim)' }}>
-                Pre-positioned: Kendriya Vihar, EcoSpace & Hebbal
-              </div>
-            </div>
-
-            <div className="bento-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx-muted)', textTransform: 'uppercase' }}>Dewatering Pumps</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx-muted)', textTransform: 'uppercase' }}>Dewatering & Logistics</span>
                 <Truck size={18} color="#60A5FA" />
               </div>
               <div style={{ fontSize: 34, fontWeight: 800, color: '#60A5FA', lineHeight: 1 }}>
                 46 <span style={{ fontSize: 16, color: 'var(--tx-muted)' }}>/ 64 Active</span>
               </div>
               <div style={{ marginTop: 10, fontSize: 12, color: 'var(--tx-dim)' }}>
-                500 GPM submersible units pumping underpasses
-              </div>
-            </div>
-
-            <div className="bento-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx-muted)', textTransform: 'uppercase' }}>Relief Shelters</span>
-                <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 12, color: '#FBBF24', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                  ACTIVE
-                </span>
-              </div>
-              <div style={{ fontSize: 34, fontWeight: 800, color: '#FBBF24', lineHeight: 1 }}>
-                12 <span style={{ fontSize: 16, color: 'var(--tx-muted)' }}>Shelters</span>
-              </div>
-              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--tx-dim)' }}>
-                Ward community halls stocked with cots & rations
-              </div>
-            </div>
-
-            <div className="bento-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx-muted)', textTransform: 'uppercase' }}>Traffic Barricades</span>
-                <ShieldAlert size={18} color="#EF4444" />
-              </div>
-              <div style={{ fontSize: 34, fontWeight: 800, color: '#EF4444', lineHeight: 1 }}>
-                2 <span style={{ fontSize: 16, color: 'var(--tx-muted)' }}>Roads</span>
-              </div>
-              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--tx-dim)' }}>
-                Silk Board & ORR service lanes sealed to flyovers
+                500 GPM submersible units pumping underpasses & 12 shelters active
               </div>
             </div>
           </>
@@ -953,12 +928,10 @@ export default function Dashboard({ weatherData }: DashboardProps) {
       <div className="bento-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--tx)' }}>
-            {currentRole === 'citizen' && 'Urgent Weather & Drainage Advisories'}
-            {currentRole === 'ksndmc' && 'Hydro-Meteorological Telemetry Bulletins'}
-            {currentRole === 'bbmp' && 'Tactical Municipal Relief & Field Operations'}
+            {!isAuthority ? 'Urgent Weather & Drainage Advisories' : 'Unified Authority Telemetry, Operations & Evacuation Dispatch'}
           </h2>
           <span style={{ fontSize: 12, color: 'var(--pri-neon)', fontWeight: 600 }}>
-            {currentRole === 'citizen' ? 'Verified Resident Feed' : currentRole === 'ksndmc' ? 'KSNDMC State Sensor Feed' : 'BBMP Disaster Command Dispatch'}
+            {!isAuthority ? 'Verified Resident Feed' : 'Unified Authority Operations Grid'}
           </span>
         </div>
 
