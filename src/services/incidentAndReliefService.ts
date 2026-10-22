@@ -910,7 +910,7 @@ export function getTotalReliefFunds(): { totalAmount: number; totalDonors: numbe
 /**
  * Clear all damage reports, official advisories, and relief fund donations
  */
-export function clearAllIncidentAndReliefData() {
+export async function clearAllIncidentAndReliefData(): Promise<void> {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(DAMAGE_REPORTS_KEY)
     localStorage.removeItem(ADVISORIES_KEY)
@@ -921,10 +921,14 @@ export function clearAllIncidentAndReliefData() {
     localStorage.removeItem(SEQ_ADVISORY_KEY)
   }
   try {
-    supabase.from('relief_donations').delete().neq('id', '_dummy_').then(() => {})
-    supabase.from('authority_advisories').delete().neq('id', '_dummy_').then(() => {})
-    supabase.from('citizen_damage_reports').delete().neq('id', '_dummy_').then(() => {})
-  } catch {}
+    await Promise.allSettled([
+      supabase.from('relief_donations').delete().neq('id', '_none_'),
+      supabase.from('authority_advisories').delete().neq('id', '_none_'),
+      supabase.from('citizen_damage_reports').delete().neq('id', '_none_'),
+    ])
+  } catch (e) {
+    console.warn('Supabase relief reset error:', e)
+  }
   notifyReports()
   notifyAdvisories()
   notifyDonations()

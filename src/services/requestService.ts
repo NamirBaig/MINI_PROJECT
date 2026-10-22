@@ -315,15 +315,17 @@ export function getAllRequests(): EmergencyRequest[] {
 /**
  * Clear all emergency requests and reset monotonic counter to 0
  */
-export function clearAllEmergencyRequests() {
+export async function clearAllEmergencyRequests(): Promise<void> {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(REQUESTS_STORAGE_KEY)
     localStorage.removeItem(KNOWN_EMAILS_KEY)
     localStorage.removeItem(SEQ_REQUEST_KEY)
   }
   try {
-    supabase.from('emergency_requests').delete().neq('id', '_dummy_').then(() => {})
-  } catch {}
+    await supabase.from('emergency_requests').delete().neq('id', '_none_')
+  } catch (e) {
+    console.warn('Supabase requests reset error:', e)
+  }
   notifyListeners()
 }
 

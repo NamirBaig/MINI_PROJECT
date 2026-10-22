@@ -387,12 +387,14 @@ export default function AuthorityRequestTriage() {
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
-            onClick={() => {
+            onClick={async () => {
               playClickSound()
-              clearAllEmergencyRequests()
-              clearAllIncidentAndReliefData()
-              toast.success('All Records Reset', 'All relief fund, dispatch details, and reports cleared to null & empty.')
+              await Promise.allSettled([
+                clearAllEmergencyRequests(),
+                clearAllIncidentAndReliefData()
+              ])
               refreshAll()
+              toast.success('All Records Reset', 'All cloud relief funds, distress requests, and damage reports wiped clean.')
             }}
             style={{
               padding: '10px 16px',
