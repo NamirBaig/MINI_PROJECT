@@ -43,7 +43,7 @@ export default function Navbar({ user, onSignOut, weather }: NavbarProps) {
     { path: '/yelahanka', label: 'Yelahanka Flood Hub', icon: Radio, isLive: true },
     { path: '/risk-map', label: 'Risk Map', icon: Map },
     { path: '/climate', label: 'Climate Trends', icon: Thermometer },
-    { path: '/preparedness', label: 'Preparedness', icon: CheckSquare },
+    ...(isCitizen ? [{ path: '/preparedness', label: 'Preparedness', icon: CheckSquare }] : []),
     { path: '/resources', label: isCitizen ? 'Beds & Supplies' : 'Municipal Logistics', icon: Package },
   ]
 

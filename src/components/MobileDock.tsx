@@ -21,7 +21,7 @@ export default function MobileDock() {
     { path: '/dashboard', label: 'Cockpit', icon: LayoutDashboard },
     { path: '/yelahanka', label: 'Live Hub', icon: Radio },
     { path: '/risk-map', label: 'Risk Map', icon: Map },
-    { path: '/preparedness', label: 'Go-Bag', icon: CheckSquare },
+    ...(isCitizen ? [{ path: '/preparedness', label: 'Go-Bag', icon: CheckSquare }] : []),
     { path: '/resources', label: isCitizen ? 'Supplies' : 'Logistics', icon: Package },
   ];
 

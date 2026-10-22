@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CheckSquare, ShieldCheck, AlertCircle, Phone, ExternalLink,
@@ -73,8 +74,15 @@ export const PREFILLED_PROFILES: Record<string, { title: string; subtitle: strin
 }
 
 export default function Preparedness({ weatherData }: PreparednessProps) {
-  const { user } = useAuth()
+  const { user, currentRole } = useAuth()
+  const navigate = useNavigate()
   const toast = useToast()
+
+  useEffect(() => {
+    if (currentRole !== 'citizen') {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [currentRole, navigate])
 
   const [activeProfile, setActiveProfile] = useState<string>('apartment')
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
