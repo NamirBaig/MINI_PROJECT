@@ -153,6 +153,15 @@ export function subscribeToDonations(cb: Listener): () => void {
   return () => donationListeners.delete(cb)
 }
 
+// Cross-tab real-time synchronization
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === DAMAGE_REPORTS_KEY) notifyReports()
+    if (e.key === ADVISORIES_KEY) notifyAdvisories()
+    if (e.key === DONATIONS_KEY) notifyDonations()
+  })
+}
+
 // ============================================================
 // 1. Citizen Damage & Waterlogging Reports
 // ============================================================

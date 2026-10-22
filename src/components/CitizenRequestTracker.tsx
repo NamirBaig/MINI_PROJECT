@@ -15,6 +15,11 @@ import {
   subscribeToRequests,
   type EmergencyRequest
 } from '../services/requestService'
+import {
+  getAllAdvisories,
+  subscribeToAdvisories,
+  type AuthorityAdvisory
+} from '../services/incidentAndReliefService'
 import { playClickSound, playSuccessSound, playAlertSound } from '../utils/audioFeedback'
 import EmergencyRequestModal from './EmergencyRequestModal'
 
@@ -28,6 +33,7 @@ export default function CitizenRequestTracker({ onRequestClick }: CitizenRequest
 
   const [activeTab, setActiveTab] = useState<'live' | 'history'>('live')
   const [requests, setRequests] = useState<EmergencyRequest[]>([])
+  const [advisories, setAdvisories] = useState<AuthorityAdvisory[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [selectedEmailFilter, setSelectedEmailFilter] = useState<string>('AUTO')
@@ -88,8 +94,15 @@ export default function CitizenRequestTracker({ onRequestClick }: CitizenRequest
 
   useEffect(() => {
     refresh()
-    const unsubscribe = subscribeToRequests(refresh)
-    return () => unsubscribe()
+    setAdvisories(getAllAdvisories())
+    const unsubscribeReq = subscribeToRequests(refresh)
+    const unsubscribeAdv = subscribeToAdvisories(() => {
+      setAdvisories(getAllAdvisories())
+    })
+    return () => {
+      unsubscribeReq()
+      unsubscribeAdv()
+    }
   }, [user, selectedEmailFilter])
 
   const handleOpenModal = () => {
@@ -226,6 +239,53 @@ export default function CitizenRequestTracker({ onRequestClick }: CitizenRequest
           </div>
         </div>
       </div>
+
+      {/* Official Government Advisory Notice */}
+      {advisories.length > 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(245, 158, 11, 0.08) 100%)',
+          border: '1.5px solid rgba(239, 68, 68, 0.4)',
+          borderRadius: 12,
+          padding: '12px 16px',
+          marginBottom: 16,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: '#EF4444',
+              boxShadow: '0 0 10px #EF4444',
+              display: 'inline-block',
+              animation: 'pulse 1.5s infinite ease-in-out',
+            }} />
+            <ShieldAlert size={18} color="#EF4444" />
+            <div style={{ fontSize: 13, color: '#FFFFFF', lineHeight: 1.4 }}>
+              <b style={{ color: '#F87171' }}>Official Govt Directive in Effect:</b> {advisories[0].title}
+              <div style={{ fontSize: 11.5, color: '#FCD34D', marginTop: 2 }}>
+                ⚠️ Emergency ambulances & rescue units are diverted via <b>{advisories[0].saferAlternativeRoute}</b>.
+              </div>
+            </div>
+          </div>
+          <span style={{
+            fontSize: 11,
+            color: '#34D399',
+            fontFamily: 'monospace',
+            fontWeight: 800,
+            background: 'rgba(0,0,0,0.3)',
+            padding: '3px 8px',
+            borderRadius: 6,
+            border: '1px solid rgba(52, 211, 153, 0.3)',
+          }}>
+            Token: {advisories[0].id}
+          </span>
+        </div>
+      )}
 
       {/* ─── Mode Tabs: Live Tracking vs Complete History ────────── */}
       <div style={{

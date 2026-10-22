@@ -11,6 +11,7 @@ import { useToast } from '../context/ToastContext'
 import { useAuth } from '../hooks/useAuth'
 import { playClickSound, playSuccessSound, playAlertSound } from '../utils/audioFeedback'
 import RequirementMap from '../components/RequirementMap'
+import PublicAdvisoryBroadcastBanner from '../components/PublicAdvisoryBroadcastBanner'
 
 type LayerType = 'floodRisk' | 'heatRisk' | 'lakeEncroachment' | 'drainageCapacity'
 type ViewMode = 'satellite' | 'hydro' | 'heat' | 'evacuation'
@@ -290,6 +291,9 @@ export default function RiskMap() {
           </button>
         </div>
       </div>
+
+      {/* Official Government Advisory Notice */}
+      <PublicAdvisoryBroadcastBanner />
 
       {authorityMapMode === 'requirement' ? (
         <RequirementMap />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -6,7 +6,7 @@ import {
   ArrowRight, Activity, ShieldCheck, MapPin, CheckCircle2,
   ExternalLink, Waves, Zap, ChevronDown, ChevronUp, BellRing, Radio,
   PhoneCall, AlertOctagon, Share2, RefreshCw, X, Send, Compass,
-  Sparkles, LifeBuoy, Truck, Building2, CheckSquare, ShieldAlert, Heart, HeartPulse
+  Sparkles, LifeBuoy, Truck, Building2, CheckSquare, ShieldAlert, Heart, HeartPulse, Navigation
 } from 'lucide-react'
 import type { WeatherData } from '../hooks/useWeather'
 import { BENGALURU_ZONES, BENGALURU_CLIMATE, FLOOD_PRONE_SPOTS } from '../data/bengaluru'
@@ -18,7 +18,14 @@ import EmergencyRequestModal from '../components/EmergencyRequestModal'
 import CitizenRequestTracker from '../components/CitizenRequestTracker'
 import AuthorityRequestTriage from '../components/AuthorityRequestTriage'
 import DisasterDonationModal from '../components/DisasterDonationModal'
-import { submitDamageReport } from '../services/incidentAndReliefService'
+import PublicAdvisoryBroadcastBanner from '../components/PublicAdvisoryBroadcastBanner'
+import {
+  submitDamageReport,
+  getAllAdvisories,
+  subscribeToAdvisories,
+  publishAdvisory,
+  type AuthorityAdvisory
+} from '../services/incidentAndReliefService'
 
 interface DashboardProps {
   weatherData: WeatherData
@@ -223,6 +230,15 @@ export default function Dashboard({ weatherData }: DashboardProps) {
   const [trafficTarget, setTrafficTarget] = useState('Silk Board Service Road (Diverted to Elevated Flyover)')
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false)
   const [donationModalOpen, setDonationModalOpen] = useState(false)
+  const [liveAdvisories, setLiveAdvisories] = useState<AuthorityAdvisory[]>([])
+
+  useEffect(() => {
+    setLiveAdvisories(getAllAdvisories())
+    const unsubscribe = subscribeToAdvisories(() => {
+      setLiveAdvisories(getAllAdvisories())
+    })
+    return () => unsubscribe()
+  }, [])
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -234,7 +250,19 @@ export default function Dashboard({ weatherData }: DashboardProps) {
   const riskLevel = overallRisk >= 70 ? 'CRITICAL' : overallRisk >= 50 ? 'HIGH' : overallRisk >= 35 ? 'MODERATE' : 'LOW'
   const riskMeta = SEVERITY_CONFIG[riskLevel]
 
-  const alerts = isAuthority
+  // Map live government advisories so they are broadcast to citizens and authorities
+  const mappedOfficialAdvisories = liveAdvisories.map((adv) => ({
+    id: adv.id,
+    title: `${adv.title}`,
+    sev: adv.severity,
+    zone: `${adv.zone} Zone`,
+    time: `${new Date(adv.publishedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Live Broadcast`,
+    detail: `${adv.message} • Flood Depth: ${adv.waterDepthReported}. Authorized by: ${adv.authorityName}.`,
+    action: `Mandatory Safer Route: ${adv.saferAlternativeRoute}`,
+    isOfficialGovt: true,
+  }))
+
+  const baseAlerts = isAuthority
     ? [
         {
           id: 'b1',
@@ -265,6 +293,8 @@ export default function Dashboard({ weatherData }: DashboardProps) {
         },
       ]
     : ROLE_ALERTS.citizen
+
+  const alerts = [...mappedOfficialAdvisories, ...baseAlerts]
 
   const handleAcknowledgeAlert = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -321,7 +351,26 @@ export default function Dashboard({ weatherData }: DashboardProps) {
   const handleBroadcastBulletin = (e: React.FormEvent) => {
     e.preventDefault()
     playAlertSound()
-    toast.alert(`State Red Alert Broadcasted`, `Relayed ${bulletinSeverity} for ${selectedBasin} to BBMP & SDRF`)
+
+    const zoneName = selectedBasin.includes('Yelahanka') ? 'Yelahanka' : selectedBasin.includes('Valley') ? 'Mahadevapura' : 'South'
+    const isCritical = bulletinSeverity.includes('RED')
+    const safeRoute = selectedBasin.includes('Yelahanka')
+      ? 'Major Sandeep Unnikrishnan Road ➔ Vidyaranyapura Main Road ➔ Doddaballapur Expressway (Elevated high-ground bypass)'
+      : selectedBasin.includes('Valley')
+      ? 'HAL Old Airport Road ➔ Suranjandas Road ➔ Marathahalli Elevated Flyover'
+      : 'Hosur Road Elevated Highway (Silk Board Tollway Ramp)'
+
+    const newAdv = publishAdvisory(
+      `STATE RED ALERT: Severe Flash Flood Warning for ${selectedBasin}`,
+      zoneName,
+      isCritical ? 'CRITICAL' : 'HIGH',
+      `Immediate emergency broadcast from State Hydro-Meteorological Command. Torrential storm runoff and lake overflow imminent in ${selectedBasin}. Residents in ground basements & low-lying zones must follow designated high-ground corridors.`,
+      isCritical ? '4.2 ft (Rapid Flash Inundation)' : '2.8 ft standing water',
+      safeRoute,
+      `${user?.user_metadata?.full_name || 'Disaster Operations Authority'} (State Hydro-Meteorological Command)`
+    )
+
+    toast.alert(`State Red Alert Broadcasted to Public`, `Advisory #${newAdv.id} transmitted to citizens across Bengaluru.`)
     setBulletinModalOpen(false)
   }
 
@@ -464,6 +513,9 @@ export default function Dashboard({ weatherData }: DashboardProps) {
           </motion.button>
         </div>
       </div>
+
+      {/* ─── LIVE OFFICIAL GOVERNMENT PUBLIC ADVISORY BROADCAST ─── */}
+      <PublicAdvisoryBroadcastBanner />
 
       {/* ─── ROLE-SPECIFIC INTERACTIVE OPERATIONS COCKPIT ──────── */}
       <div>
@@ -971,6 +1023,22 @@ export default function Dashboard({ weatherData }: DashboardProps) {
                     }}>
                       {alert.sev}
                     </span>
+                    {(alert as any).isOfficialGovt && (
+                      <span style={{
+                        fontSize: 9.5,
+                        fontWeight: 900,
+                        padding: '2px 7px',
+                        borderRadius: 5,
+                        background: '#EF4444',
+                        color: '#FFFFFF',
+                        letterSpacing: '0.04em',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}>
+                        <Radio size={11} /> OFFICIAL DIRECTIVE
+                      </span>
+                    )}
                     <span style={{ fontSize: 14.5, fontWeight: 700, color: '#FFFFFF' }}>
                       {alert.title}
                     </span>

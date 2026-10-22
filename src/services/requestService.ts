@@ -108,6 +108,13 @@ export function subscribeToRequests(callback: RequestChangeListener): () => void
   }
 }
 
+// Cross-tab real-time synchronization
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === REQUESTS_STORAGE_KEY) notifyListeners()
+  })
+}
+
 /**
  * Register a known requester email for quick retrieval across persona toggles
  */

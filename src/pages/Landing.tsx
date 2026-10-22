@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../context/ToastContext'
 import { playClickSound, playSuccessSound } from '../utils/audioFeedback'
 import AnimatedWeatherBadge, { AnimatedWeatherIcon, AnimatedWeatherBoxCanvas } from '../components/AnimatedWeatherBadge'
+import PublicAdvisoryBroadcastBanner from '../components/PublicAdvisoryBroadcastBanner'
 
 interface LandingProps {
   weatherData: WeatherData
@@ -236,6 +237,9 @@ export default function Landing({ weatherData }: LandingProps) {
 
       {/* ─── Hero Section ───────────────────────────────────────────────── */}
       <section style={{ maxWidth: 1240, margin: '40px auto 80px', padding: '0 24px', position: 'relative', zIndex: 1 }}>
+        {/* Live Official Government Public Advisory Broadcast */}
+        <PublicAdvisoryBroadcastBanner />
+
         <div style={{ textAlign: 'center', maxWidth: 960, margin: '0 auto 60px' }}>
           {/* Badge */}
           <motion.div
