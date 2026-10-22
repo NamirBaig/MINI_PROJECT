@@ -15,6 +15,7 @@ import Preparedness from './pages/Preparedness'
 import Resources from './pages/Resources'
 import YelahankaHub from './pages/YelahankaHub'
 import Auth from './pages/Auth'
+import FloatingReliefWidget from './components/FloatingReliefWidget'
 
 const pageVariants = {
   initial: { opacity: 0, y: 12 },
@@ -47,6 +48,7 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <Navbar user={user} onSignOut={handleSignOut} weather={weather} />
         <MobileDock />
+        <FloatingReliefWidget />
         <main className="app-main-content">
           <AnimatePresence mode="wait">
             {children}

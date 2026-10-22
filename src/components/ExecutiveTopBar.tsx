@@ -43,8 +43,21 @@ export default function ExecutiveTopBar({ user, onSignOut, weather }: ExecutiveT
   const handleSwitchRole = (role: UserRole) => {
     playSuccessSound()
     loginAsRole(role)
-    const preset = ROLE_PRESETS[role]
-    toast.success('Clearance Switched', `Active session: ${preset.name} (${preset.title})`)
+    let label = ''
+    if (role === 'citizen') {
+      try {
+        const saved = localStorage.getItem('safeground_primary_personal_user')
+        if (saved) {
+          const p = JSON.parse(saved)
+          label = `${p.user_metadata?.full_name || p.email} (Personal Account)`
+        }
+      } catch {}
+    }
+    if (!label) {
+      const preset = ROLE_PRESETS[role]
+      label = `${preset.name} (${preset.title})`
+    }
+    toast.success('Clearance Switched', `Active session: ${label}`)
     setRoleMenuOpen(false)
   }
 
@@ -204,9 +217,30 @@ export default function ExecutiveTopBar({ user, onSignOut, weather }: ExecutiveT
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
-                  {(['citizen', 'ksndmc', 'bbmp'] as UserRole[]).map(r => {
+                  {(['citizen', 'bbmp', 'ksndmc', 'hospital'] as UserRole[]).map(r => {
                     const preset = ROLE_PRESETS[r]
-                    const isCurrent = user?.email === preset.email
+                    let itemName = preset.name
+                    let itemTitle = preset.title
+                    let isCurrent = false
+
+                    if (r === 'citizen') {
+                      try {
+                        const saved = localStorage.getItem('safeground_primary_personal_user')
+                        if (saved) {
+                          const p = JSON.parse(saved)
+                          itemName = p.user_metadata?.full_name || p.email.split('@')[0]
+                          itemTitle = `Personal Account (${p.email})`
+                          isCurrent = user?.email?.toLowerCase() === p.email.toLowerCase()
+                        } else {
+                          isCurrent = user?.email === preset.email
+                        }
+                      } catch {
+                        isCurrent = user?.email === preset.email
+                      }
+                    } else {
+                      isCurrent = user?.email === preset.email
+                    }
+
                     return (
                       <button
                         key={r}
@@ -228,10 +262,10 @@ export default function ExecutiveTopBar({ user, onSignOut, weather }: ExecutiveT
                       >
                         <div>
                           <div style={{ fontWeight: 700, color: isCurrent ? '#34D399' : '#FFFFFF' }}>
-                            {preset.name}
+                            {itemName}
                           </div>
                           <div style={{ fontSize: '9.5px', color: 'rgba(255, 255, 255, 0.5)' }}>
-                            {preset.title}
+                            {itemTitle}
                           </div>
                         </div>
                         {isCurrent && <Check size={14} color="#34D399" />}

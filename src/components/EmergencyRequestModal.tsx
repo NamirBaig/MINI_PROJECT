@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, AlertTriangle, ShieldAlert, Bed, Droplets, Truck,
-  HeartPulse, Sparkles, Send, MapPin, Phone, User, CheckCircle2
+  HeartPulse, Sparkles, Send, MapPin, Phone, User, CheckCircle2, Mail
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../context/ToastContext'
@@ -45,6 +45,17 @@ export default function EmergencyRequestModal({
   const [zone, setZone] = useState(user?.user_metadata?.zone || defaultZone)
   const [address, setAddress] = useState('')
   const [requesterName, setRequesterName] = useState(user?.user_metadata?.full_name || '')
+  const [requesterEmail, setRequesterEmail] = useState(() => {
+    if (user?.email && !user.email.endsWith('@safeground.blr')) return user.email
+    try {
+      const saved = localStorage.getItem('safeground_primary_personal_user')
+      if (saved) {
+        const p = JSON.parse(saved)
+        if (p.email) return p.email
+      }
+    } catch {}
+    return user?.email || ''
+  })
   const [requesterPhone, setRequesterPhone] = useState(user?.user_metadata?.phone || '')
   const [patientNotes, setPatientNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -53,9 +64,9 @@ export default function EmergencyRequestModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!address.trim() || !requesterName.trim() || !requesterPhone.trim() || !patientNotes.trim()) {
+    if (!address.trim() || !requesterName.trim() || !requesterPhone.trim() || !patientNotes.trim() || !requesterEmail.trim()) {
       playAlertSound()
-      toast.alert('Incomplete Request', 'Please fill in address, contact phone, and medical notes.')
+      toast.alert('Incomplete Request', 'Please fill in address, personal email, contact phone, and medical notes.')
       return
     }
 
@@ -63,10 +74,11 @@ export default function EmergencyRequestModal({
     playClickSound()
 
     try {
+      const targetEmail = requesterEmail.trim().toLowerCase()
       const newReq = createEmergencyRequest({
         userId: user?.id || `anon-${Date.now()}`,
         requesterName: requesterName.trim(),
-        requesterEmail: user?.email || `${requesterName.toLowerCase().replace(/\s+/g, '.')}@citizen.blr`,
+        requesterEmail: targetEmail,
         requesterPhone: requesterPhone.trim(),
         zone,
         address: address.trim(),
@@ -79,7 +91,7 @@ export default function EmergencyRequestModal({
       playSuccessSound()
       toast.success(
         `Emergency Request Dispatched (${newReq.id})`,
-        `Assigned to BBMP & Hospital Command for ${zone} Zone`
+        `Assigned to BBMP & Hospital Command for ${zone} Zone. Confirmation linked to ${targetEmail}`
       )
       setSubmitting(false)
       onClose()
@@ -331,7 +343,7 @@ export default function EmergencyRequestModal({
               </div>
             </div>
 
-            {/* 4. Requester Name & Phone */}
+            {/* 4. Requester Name, Phone & Personal Notification Email */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6, color: '#E2E8F0' }}>
@@ -384,6 +396,42 @@ export default function EmergencyRequestModal({
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Personal / Google Email for Dispatch Receipts & Tracking */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                <label style={{ fontSize: 13, fontWeight: 700, color: '#E2E8F0' }}>
+                  Personal / Google Email (For Live Dispatch & Decision Receipts)
+                </label>
+                <span style={{ fontSize: 11, color: '#34D399', fontWeight: 600 }}>
+                  ✉️ Tracking receipt will be sent here
+                </span>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <Mail size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)' }} />
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. yourname@gmail.com"
+                  value={requesterEmail}
+                  onChange={e => setRequesterEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px 10px 36px',
+                    borderRadius: 10,
+                    background: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    color: '#FFFFFF',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <p style={{ margin: '4px 0 0', fontSize: 11.5, color: 'var(--tx-muted)' }}>
+                When authorities accept or deny your request, this email will receive the official bed reservation token, ambulance vehicle number, driver contact, and live ETA.
+              </p>
             </div>
 
             {/* 5. Medical Emergency & Patient Condition Notes */}

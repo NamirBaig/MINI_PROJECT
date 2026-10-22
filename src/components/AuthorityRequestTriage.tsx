@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ShieldAlert, CheckCircle2, XCircle, Truck, HeartPulse,
   Bed, Phone, MapPin, Building2, AlertTriangle, User,
-  Filter, Search, Send, Clock, X, ChevronDown, Check, Droplets
+  Filter, Search, Send, Clock, X, ChevronDown, Check, Droplets,
+  Radio, Compass, ShieldCheck, Heart, Sparkles, AlertOctagon,
+  Users, BarChart3, Navigation, ExternalLink, ArrowRight, Layers
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../context/ToastContext'
@@ -15,9 +17,25 @@ import {
   markAsDispatched,
   subscribeToRequests,
   type EmergencyRequest,
-  type RequestStatus,
-  type UrgencyLevel
 } from '../services/requestService'
+import {
+  getAllDamageReports,
+  verifyDamageReport,
+  getCrowdsourcedRedZones,
+  getAllAdvisories,
+  publishAdvisory,
+  getWardPreparednessStats,
+  getUserDonationSummaries,
+  getTotalReliefFunds,
+  subscribeToDamageReports,
+  subscribeToAdvisories,
+  subscribeToDonations,
+  type CitizenDamageReport,
+  type CrowdsourcedRedZone,
+  type AuthorityAdvisory,
+  type WardPreparednessStat,
+  type UserDonationSummary,
+} from '../services/incidentAndReliefService'
 
 const BENGALURU_ZONES = [
   'All', 'Yelahanka', 'Mahadevapura', 'Bommanahalli', 'East',
@@ -35,40 +53,93 @@ const HOSPITAL_OPTIONS = [
   'BWSSB Emergency Tanker Supply Base #2',
 ]
 
+type AuthorityTab = 'requests' | 'water_damage' | 'red_zones' | 'ward_preparedness' | 'relief_donations'
+
 export default function AuthorityRequestTriage() {
   const { user, currentRole } = useAuth()
   const toast = useToast()
 
+  const [activeTab, setActiveTab] = useState<AuthorityTab>('requests')
+
+  // Emergency Requests state
   const [requests, setRequests] = useState<EmergencyRequest[]>([])
   const [zoneFilter, setZoneFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState<string>('All')
   const [urgencyFilter, setUrgencyFilter] = useState<string>('All')
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Water & Damage Reports state
+  const [damageReports, setDamageReports] = useState<CitizenDamageReport[]>([])
+  const [reportZoneFilter, setReportZoneFilter] = useState('All')
+
+  // Crowdsourced Red Zones
+  const [redZones, setRedZones] = useState<CrowdsourcedRedZone[]>([])
+
+  // Advisories state
+  const [advisories, setAdvisories] = useState<AuthorityAdvisory[]>([])
+  const [advisoryModalOpen, setAdvisoryModalOpen] = useState(false)
+  const [advTitle, setAdvTitle] = useState('')
+  const [advZone, setAdvZone] = useState('Mahadevapura')
+  const [advSeverity, setAdvSeverity] = useState<'CRITICAL' | 'HIGH' | 'MODERATE'>('CRITICAL')
+  const [advMessage, setAdvMessage] = useState('')
+  const [advWaterDepth, setAdvWaterDepth] = useState('3.5 ft')
+  const [advSaferRoute, setAdvSaferRoute] = useState('')
+  const [advTargetReportIds, setAdvTargetReportIds] = useState<string[]>([])
+
+  // Ward Preparedness
+  const [wardStats, setWardStats] = useState<WardPreparednessStat[]>([])
+
+  // Donations Audit
+  const [donationSummaries, setDonationSummaries] = useState<UserDonationSummary[]>([])
+  const [reliefTotals, setReliefTotals] = useState({ totalAmount: 0, totalDonors: 0, totalTransactions: 0 })
+  const [donorSearch, setDonorSearch] = useState('')
+
   // Approve Action Modal
   const [approveModalItem, setApproveModalItem] = useState<EmergencyRequest | null>(null)
   const [allocatedHospital, setAllocatedHospital] = useState(HOSPITAL_OPTIONS[0])
+  const [bedNumber, setBedNumber] = useState('ICU Bay #04 (Floor 2, Critical Care Wing)')
+  const [dispatchVehicle, setDispatchVehicle] = useState('108 ALS Ambulance (KA-04-E-8421)')
+  const [driverName, setDriverName] = useState('Manjunath R. (Ambulance Lead Pilot)')
+  const [driverPhone, setDriverPhone] = useState('+91 98451 91108')
+  const [dispatchEta, setDispatchEta] = useState('14 mins (Arriving Soon)')
   const [approvalNotes, setApprovalNotes] = useState('')
 
   // Deny Action Modal
   const [denyModalItem, setDenyModalItem] = useState<EmergencyRequest | null>(null)
   const [denialNotes, setDenialNotes] = useState('')
+  const [redirectShelter, setRedirectShelter] = useState('BBMP Ward 04 Community Relief Center, Kodigehalli (Ph: 080-22660000)')
 
   const authorityName = user?.user_metadata?.full_name || 'BBMP Incident Commander'
   const authorityRole = user?.user_metadata?.role || 'Disaster Relief Lead'
 
-  const loadRequests = () => {
+  // Data Loading & Subscriptions
+  const refreshAll = () => {
     setRequests(getAllRequests())
+    setDamageReports(getAllDamageReports())
+    setRedZones(getCrowdsourcedRedZones())
+    setAdvisories(getAllAdvisories())
+    setWardStats(getWardPreparednessStats())
+    setDonationSummaries(getUserDonationSummaries())
+    setReliefTotals(getTotalReliefFunds())
   }
 
   useEffect(() => {
-    loadRequests()
-    const unsubscribe = subscribeToRequests(loadRequests)
-    return () => unsubscribe()
+    refreshAll()
+    const unsubReq = subscribeToRequests(refreshAll)
+    const unsubRep = subscribeToDamageReports(refreshAll)
+    const unsubAdv = subscribeToAdvisories(refreshAll)
+    const unsubDon = subscribeToDonations(refreshAll)
+
+    return () => {
+      unsubReq()
+      unsubRep()
+      unsubAdv()
+      unsubDon()
+    }
   }, [])
 
-  // Filtering
-  const filtered = requests.filter(req => {
+  // Emergency Requests Filtering
+  const filteredRequests = requests.filter(req => {
     const matchesZone = zoneFilter === 'All' || req.zone.toLowerCase() === zoneFilter.toLowerCase()
     const matchesStatus = statusFilter === 'All' || req.status === statusFilter
     const matchesUrgency = urgencyFilter === 'All' || req.urgency === urgencyFilter
@@ -82,629 +153,1313 @@ export default function AuthorityRequestTriage() {
     return matchesZone && matchesStatus && matchesUrgency && matchesSearch
   })
 
-  // Counters
-  const totalCount = requests.length
-  const pendingCount = requests.filter(r => r.status === 'PENDING').length
-  const approvedCount = requests.filter(r => r.status === 'APPROVED' || r.status === 'DISPATCHED').length
-  const deniedCount = requests.filter(r => r.status === 'DENIED').length
+  // Damage Reports Filtering
+  const filteredDamageReports = damageReports.filter(rep => {
+    return reportZoneFilter === 'All' || rep.zone.toLowerCase() === reportZoneFilter.toLowerCase()
+  })
 
-  // Handlers
+  // User Donations Filtering
+  const filteredDonors = donationSummaries.filter(d => {
+    const q = donorSearch.toLowerCase()
+    return d.donorEmail.toLowerCase().includes(q) || d.donorName.toLowerCase().includes(q)
+  })
+
+  // Counters
+  const pendingRequestsCount = requests.filter(r => r.status === 'PENDING').length
+  const pendingReportsCount = damageReports.filter(r => r.status === 'PENDING_REVIEW').length
+  const redZonesCount = redZones.length
+
+  // Handlers for Emergency Requests
   const handleOpenApprove = (req: EmergencyRequest) => {
     playClickSound()
     setApproveModalItem(req)
     setAllocatedHospital(HOSPITAL_OPTIONS[0])
-    setApprovalNotes(`Approved: ${req.quantity} unit(s) of ${req.resourceType} reserved for ${req.requesterName}. 108 Ambulance unit notified for immediate evacuation.`)
+    const isWater = req.resourceType.includes('Water')
+    const isBoat = req.resourceType.includes('Boat')
+    const isICU = req.resourceType.includes('ICU')
+
+    const initialBed = isICU
+      ? `ICU Bay #0${Math.floor(1 + Math.random() * 8)} (Floor 2, Critical Care Wing)`
+      : isWater
+      ? `Depot Delivery Docket #BWSSB-${Math.floor(1000 + Math.random() * 9000)}`
+      : `Emergency Ward Bed #${Math.floor(12 + Math.random() * 30)}-A`
+
+    const initialVehicle = isWater
+      ? 'BWSSB Potable Water Tanker KA-01-F-3902 (6000L)'
+      : isBoat
+      ? 'SDRF Inflatable Motorized Rescue Craft #04'
+      : `108 ALS Ambulance (KA-04-E-${Math.floor(2000 + Math.random() * 7000)})`
+
+    const initialDriver = isWater
+      ? 'Someshwaraiah N. (BWSSB Pilot)'
+      : isBoat
+      ? 'Sub-Inspector Kumaraswamy (SDRF Flood Squad)'
+      : 'Manjunath R. (Ambulance Lead Pilot)'
+
+    const initialPhone = isWater ? '+91 94480 33100' : isBoat ? '+91 94480 11999' : '+91 98451 91108'
+    const initialEta = isWater ? '22 mins (En Route)' : isBoat ? '18 mins (Rapid Response)' : '14 mins (Arriving Soon)'
+
+    setBedNumber(initialBed)
+    setDispatchVehicle(initialVehicle)
+    setDriverName(initialDriver)
+    setDriverPhone(initialPhone)
+    setDispatchEta(initialEta)
+    setApprovalNotes(`Priority authorization granted for ${req.resourceType}. Government notification dispatched to ${req.requesterEmail}.`)
   }
 
-  const handleConfirmApprove = (e: React.FormEvent) => {
+  const handleConfirmApproval = (e: React.FormEvent) => {
     e.preventDefault()
     if (!approveModalItem) return
-
     playSuccessSound()
+
     const updated = approveEmergencyRequest(
       approveModalItem.id,
-      `${authorityName} (${authorityRole})`,
+      authorityName,
       allocatedHospital,
-      approvalNotes
+      approvalNotes,
+      bedNumber,
+      dispatchVehicle,
+      driverName,
+      driverPhone,
+      dispatchEta
     )
 
-    toast.success(
-      `Request Approved (${approveModalItem.id})`,
-      `Allocated at ${allocatedHospital}`
-    )
+    if (updated) {
+      toast.success(
+        'Request Approved & Dispatched',
+        `Allocated ${bedNumber} at ${allocatedHospital}. Tracking updated to ACCEPTED & ARRIVING SOON.`
+      )
+    }
     setApproveModalItem(null)
   }
 
   const handleOpenDeny = (req: EmergencyRequest) => {
-    playAlertSound()
+    playClickSound()
     setDenyModalItem(req)
-    setDenialNotes(`Denied: Inpatient beds prioritized for acute emergencies in ${req.zone}. Citizen redirected to nearest dry relief camp with water and food supplies.`)
+    setDenialNotes(`High regional demand surge in ${req.zone}. Redirected to nearest municipal shelter with continuous water & first-aid support.`)
   }
 
-  const handleConfirmDeny = (e: React.FormEvent) => {
+  const handleConfirmDenial = (e: React.FormEvent) => {
     e.preventDefault()
     if (!denyModalItem) return
-
     playAlertSound()
-    denyEmergencyRequest(
+
+    const updated = denyEmergencyRequest(
       denyModalItem.id,
-      `${authorityName} (${authorityRole})`,
-      denialNotes
+      authorityName,
+      denialNotes,
+      redirectShelter
     )
 
-    toast.alert(
-      `Request Denied / Redirected (${denyModalItem.id})`,
-      'Action notes recorded for citizen view'
-    )
+    if (updated) {
+      toast.alert(
+        'Request Redirected & Notified',
+        `Citizen notified with alternative relief shelter at ${redirectShelter}.`
+      )
+    }
     setDenyModalItem(null)
   }
 
-  const handleDispatch = (req: EmergencyRequest) => {
+  // Damage Report Actions
+  const handleVerifyReport = (rep: CitizenDamageReport) => {
     playSuccessSound()
-    markAsDispatched(
-      req.id,
+    verifyDamageReport(rep.id, `${authorityName} (${authorityRole})`)
+    toast.success('Report Verified', `Incident #${rep.id} verified at ${rep.landmark}`)
+  }
+
+  const handleOpenAdvisoryModal = (rep?: CitizenDamageReport, cluster?: CrowdsourcedRedZone) => {
+    playClickSound()
+    if (cluster) {
+      setAdvTitle(`OFFICIAL FLOOD RED ZONE: ${cluster.hotspotName}`)
+      setAdvZone(cluster.zone)
+      setAdvSeverity('CRITICAL')
+      setAdvWaterDepth(`${cluster.avgWaterDepth} ft`)
+      setAdvMessage(`Multiple residents report severe inundation averaging ${cluster.avgWaterDepth} ft. Road impassable. Traffic diversion active.`)
+      setAdvSaferRoute(cluster.saferAlternativeRoute.routeName)
+      setAdvTargetReportIds(cluster.citizenReports.map(r => r.id))
+    } else if (rep) {
+      setAdvTitle(`FLOOD ALERT: ${rep.landmark} Submerged`)
+      setAdvZone(rep.zone)
+      setAdvSeverity(rep.severity)
+      setAdvWaterDepth(`${rep.waterDepthFeet} ft`)
+      setAdvMessage(`Standing water level reaches ${rep.waterDepthFeet} ft due to drainage backflow. Submerged vehicles reported.`)
+      setAdvSaferRoute(`Elevated Ring Road corridor bypassing ${rep.landmark}`)
+      setAdvTargetReportIds([rep.id])
+    } else {
+      setAdvTitle('EMERGENCY FLOOD DIVERSION ADVISORY')
+      setAdvZone('Mahadevapura')
+      setAdvSeverity('CRITICAL')
+      setAdvWaterDepth('3.5 ft')
+      setAdvMessage('Severe waterlogging detected. Low-lying service roads are closed.')
+      setAdvSaferRoute('HAL Old Airport Road elevated flyover')
+      setAdvTargetReportIds([])
+    }
+    setAdvisoryModalOpen(true)
+  }
+
+  const handlePublishAdvisory = (e: React.FormEvent) => {
+    e.preventDefault()
+    playAlertSound()
+    publishAdvisory(
+      advTitle,
+      advZone,
+      advSeverity,
+      advMessage,
+      advWaterDepth,
+      advSaferRoute,
       `${authorityName} (${authorityRole})`,
-      `Relief unit and ambulance dispatched on priority to ${req.address}. ETA 18 minutes.`
+      advTargetReportIds
     )
-    toast.info(`Dispatched (${req.id})`, 'Transport and paramedic team en route')
+    toast.alert('Official Advisory Broadcasted', `Relayed to Bengaluru citizens, Traffic Police & BBMP Control`)
+    setAdvisoryModalOpen(false)
   }
 
   return (
-    <div className="bento-card" style={{ position: 'relative' }}>
-      {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14, marginBottom: 20 }}>
+    <div
+      style={{
+        background: 'linear-gradient(135deg, #0F1713 0%, #080D0A 100%)',
+        border: '1px solid rgba(16, 185, 129, 0.25)',
+        borderRadius: 20,
+        padding: '24px',
+        color: '#FFFFFF',
+        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
+        marginBottom: 28,
+      }}
+    >
+      {/* ─── COMMAND TOP HEADER ─── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '4px 10px',
-              borderRadius: 20,
-              background: 'rgba(239, 68, 68, 0.2)',
-              border: '1px solid rgba(239, 68, 68, 0.45)',
-              color: '#F87171',
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: 0.5,
-            }}>
-              <ShieldAlert size={14} />
-              AUTHORITY TRIAGE & DISPATCH COMMAND
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 12px',
+                borderRadius: 20,
+                background: 'rgba(239, 68, 68, 0.2)',
+                border: '1px solid rgba(239, 68, 68, 0.45)',
+                color: '#F87171',
+                fontSize: 11.5,
+                fontWeight: 900,
+                letterSpacing: 0.5,
+              }}
+            >
+              <ShieldAlert size={15} />
+              BBMP • KSNDMC • DISASTER OPERATIONS HUB
             </span>
             <span style={{ fontSize: 12, color: 'var(--tx-muted)' }}>
-              Logged in: <b>{authorityName}</b> ({authorityRole})
+              Commander: <b>{authorityName}</b> ({authorityRole})
             </span>
           </div>
-          <h2 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: '#FFFFFF' }}>
-            Emergency Resource Requests & Bed Allocation Console
+
+          <h2 style={{ margin: 0, fontSize: 23, fontWeight: 900, color: '#FFFFFF' }}>
+            Bengaluru Authority Crisis & Relief Cockpit
           </h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--tx-muted)' }}>
-            Inspect incoming requests from citizens in distress across Bengaluru zones. Approve hospital bed allocation or deny with municipal rationale.
+            Inspect distress requests, citizen water depths, crowdsourced red zones, ward preparedness, and relief donations.
           </p>
         </div>
 
-        {/* Counter Summary Pills */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', padding: '6px 12px', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#FBBF24' }}>{pendingCount}</div>
-            <div style={{ fontSize: 10, color: 'var(--tx-muted)', fontWeight: 700 }}>PENDING</div>
-          </div>
-          <div style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.35)', padding: '6px 12px', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#34D399' }}>{approvedCount}</div>
-            <div style={{ fontSize: 10, color: 'var(--tx-muted)', fontWeight: 700 }}>APPROVED</div>
-          </div>
-          <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.35)', padding: '6px 12px', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#F87171' }}>{deniedCount}</div>
-            <div style={{ fontSize: 10, color: 'var(--tx-muted)', fontWeight: 700 }}>DENIED</div>
-          </div>
-        </div>
+        {/* Quick Action: Publish Advisory */}
+        <button
+          onClick={() => handleOpenAdvisoryModal()}
+          style={{
+            padding: '10px 18px',
+            borderRadius: 12,
+            background: 'linear-gradient(135deg, #EF4444 0%, #B91C1C 100%)',
+            border: 'none',
+            color: '#FFFFFF',
+            fontSize: 13,
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)',
+          }}
+        >
+          <Radio size={16} /> Broadcast Official Advisory
+        </button>
       </div>
 
-      {/* Filter Matrix Bar */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: 10,
-        background: 'rgba(255, 255, 255, 0.03)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        borderRadius: 12,
-        padding: '12px 14px',
-        marginBottom: 20,
-      }}>
-        {/* Search */}
-        <div style={{ position: 'relative' }}>
-          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)' }} />
-          <input
-            type="text"
-            placeholder="Search citizen name, ID, road..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 12px 8px 34px',
-              borderRadius: 8,
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: '#FFFFFF',
-              fontSize: 12,
-              boxSizing: 'border-box',
-            }}
-          />
-        </div>
-
-        {/* Zone Selector */}
-        <div>
-          <select
-            value={zoneFilter}
-            onChange={e => setZoneFilter(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              borderRadius: 8,
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: '#FFFFFF',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            {BENGALURU_ZONES.map(z => (
-              <option key={z} value={z} style={{ background: '#111814', color: '#fff' }}>
-                Zone: {z}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Status Filter */}
-        <div>
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              borderRadius: 8,
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: '#FFFFFF',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            <option value="All" style={{ background: '#111814', color: '#fff' }}>Status: All</option>
-            <option value="PENDING" style={{ background: '#111814', color: '#fff' }}>Status: Pending Review</option>
-            <option value="APPROVED" style={{ background: '#111814', color: '#fff' }}>Status: Approved</option>
-            <option value="DISPATCHED" style={{ background: '#111814', color: '#fff' }}>Status: Dispatched</option>
-            <option value="DENIED" style={{ background: '#111814', color: '#fff' }}>Status: Denied</option>
-          </select>
-        </div>
-
-        {/* Urgency Filter */}
-        <div>
-          <select
-            value={urgencyFilter}
-            onChange={e => setUrgencyFilter(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              borderRadius: 8,
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: '#FFFFFF',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            <option value="All" style={{ background: '#111814', color: '#fff' }}>Urgency: All Levels</option>
-            <option value="CRITICAL" style={{ background: '#111814', color: '#fff' }}>Urgency: Critical</option>
-            <option value="HIGH" style={{ background: '#111814', color: '#fff' }}>Urgency: High</option>
-            <option value="MODERATE" style={{ background: '#111814', color: '#fff' }}>Urgency: Moderate</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Requests Triage Table / Cards */}
-      {filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--tx-muted)' }}>
-          No emergency requests matching the selected filters.
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {filtered.map(req => {
-            const isCritical = req.urgency === 'CRITICAL'
-            const isApproved = req.status === 'APPROVED' || req.status === 'DISPATCHED'
-            const isDenied = req.status === 'DENIED'
-            const isPending = req.status === 'PENDING'
-
-            return (
-              <motion.div
-                key={req.id}
-                layout
-                style={{
-                  background: isCritical && isPending
-                    ? 'linear-gradient(145deg, rgba(239, 68, 68, 0.1) 0%, rgba(15, 23, 19, 0.75) 100%)'
-                    : 'rgba(255, 255, 255, 0.035)',
-                  border: isCritical && isPending
-                    ? '1px solid rgba(239, 68, 68, 0.5)'
-                    : isApproved
-                    ? '1px solid rgba(16, 185, 129, 0.35)'
-                    : isDenied
-                    ? '1px solid rgba(239, 68, 68, 0.3)'
-                    : '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: 14,
-                  padding: '18px 20px',
-                  position: 'relative',
-                }}
-              >
-                {/* Request Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--pri-neon)' }}>
-                        {req.id}
-                      </span>
-                      <span style={{
-                        fontSize: 10,
-                        fontWeight: 800,
-                        padding: '2px 7px',
-                        borderRadius: 6,
-                        background: req.urgency === 'CRITICAL' ? 'rgba(239, 68, 68, 0.25)' : req.urgency === 'HIGH' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(16, 185, 129, 0.25)',
-                        color: req.urgency === 'CRITICAL' ? '#F87171' : req.urgency === 'HIGH' ? '#FBBF24' : '#34D399',
-                        border: req.urgency === 'CRITICAL' ? '1px solid rgba(239, 68, 68, 0.4)' : 'none',
-                      }}>
-                        {req.urgency}
-                      </span>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>
-                        Submitted {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-
-                    <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#FFFFFF' }}>
-                      {req.quantity}x {req.resourceType}
-                    </h3>
-                  </div>
-
-                  {/* Status Badge */}
-                  <div>
-                    {isPending && (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '5px 12px',
-                        borderRadius: 20,
-                        background: 'rgba(245, 158, 11, 0.18)',
-                        border: '1px solid #F59E0B',
-                        color: '#FBBF24',
-                        fontSize: 11.5,
-                        fontWeight: 800,
-                      }}>
-                        <Clock size={13} />
-                        PENDING ACTION
-                      </span>
-                    )}
-                    {req.status === 'APPROVED' && (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '5px 12px',
-                        borderRadius: 20,
-                        background: 'rgba(16, 185, 129, 0.2)',
-                        border: '1px solid #10B981',
-                        color: '#34D399',
-                        fontSize: 11.5,
-                        fontWeight: 800,
-                      }}>
-                        <CheckCircle2 size={13} />
-                        APPROVED
-                      </span>
-                    )}
-                    {req.status === 'DISPATCHED' && (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '5px 12px',
-                        borderRadius: 20,
-                        background: 'rgba(6, 182, 212, 0.2)',
-                        border: '1px solid #06B6D4',
-                        color: '#22D3EE',
-                        fontSize: 11.5,
-                        fontWeight: 800,
-                      }}>
-                        <Truck size={13} />
-                        DISPATCHED
-                      </span>
-                    )}
-                    {isDenied && (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '5px 12px',
-                        borderRadius: 20,
-                        background: 'rgba(239, 68, 68, 0.2)',
-                        border: '1px solid #EF4444',
-                        color: '#F87171',
-                        fontSize: 11.5,
-                        fontWeight: 800,
-                      }}>
-                        <XCircle size={13} />
-                        DENIED
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Citizen Details Grid */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                  gap: 12,
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  borderRadius: 10,
-                  padding: '12px 14px',
-                  marginBottom: 14,
-                }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: 'var(--tx-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <User size={13} color="#34D399" /> Requester Person
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', marginTop: 2 }}>
-                      {req.requesterName}
-                    </div>
-                    <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>
-                      {req.requesterEmail}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: 11, color: 'var(--tx-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <Phone size={13} color="#38BDF8" /> Contact Phone
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', marginTop: 2 }}>
-                      {req.requesterPhone}
-                    </div>
-                  </div>
-
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <div style={{ fontSize: 11, color: 'var(--tx-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <MapPin size={13} color="#FBBF24" /> Specific Location ({req.zone} Zone)
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', marginTop: 2 }}>
-                      {req.address}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Patient Situation / Emergency Notes */}
-                <div style={{
-                  background: 'rgba(0, 0, 0, 0.3)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: 10,
-                  padding: '10px 14px',
-                  fontSize: 12.5,
-                  color: 'rgba(255, 255, 255, 0.9)',
-                  lineHeight: 1.5,
-                  marginBottom: 14,
-                }}>
-                  <b style={{ color: '#F87171' }}>Patient Emergency Condition:</b> {req.patientNotes}
-                </div>
-
-                {/* If already actioned: display notes */}
-                {req.actionNotes && (
-                  <div style={{
-                    marginBottom: 14,
-                    padding: '10px 14px',
-                    borderRadius: 10,
-                    background: isApproved ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    border: isApproved ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-                    fontSize: 12,
-                  }}>
-                    <div style={{ color: isApproved ? '#34D399' : '#F87171', fontWeight: 700, marginBottom: 2 }}>
-                      {isApproved ? 'Bed Allocation / Dispatch Decision:' : 'Official Denial Rationale:'}
-                    </div>
-                    <div style={{ color: '#FFFFFF' }}>{req.actionNotes}</div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
-                      Reviewed by {req.reviewedBy} at {req.reviewedAt ? new Date(req.reviewedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
-                    </div>
-                  </div>
-                )}
-
-                {/* Authority Action Control Buttons */}
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                  {isPending && (
-                    <>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleOpenDeny(req)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '8px 16px',
-                          borderRadius: 8,
-                          background: 'rgba(239, 68, 68, 0.15)',
-                          border: '1px solid rgba(239, 68, 68, 0.4)',
-                          color: '#F87171',
-                          fontSize: 12.5,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <XCircle size={15} />
-                        <span>Deny / Redirect</span>
-                      </motion.button>
-
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleOpenApprove(req)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '8px 18px',
-                          borderRadius: 8,
-                          background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                          border: 'none',
-                          color: '#030604',
-                          fontSize: 12.5,
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)',
-                        }}
-                      >
-                        <CheckCircle2 size={15} />
-                        <span>Approve & Allocate Beds</span>
-                      </motion.button>
-                    </>
-                  )}
-
-                  {req.status === 'APPROVED' && (
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleDispatch(req)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '8px 18px',
-                        borderRadius: 8,
-                        background: 'linear-gradient(135deg, #06B6D4 0%, #0284C7 100%)',
-                        border: 'none',
-                        color: '#FFFFFF',
-                        fontSize: 12.5,
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <Truck size={15} />
-                      <span>Dispatch Ambulance / Rescue Unit</span>
-                    </motion.button>
-                  )}
-                </div>
-              </motion.div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* ─── Modal 1: Approve & Allocate Bed ─── */}
-      <AnimatePresence>
-        {approveModalItem && (
-          <div style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
+      {/* ─── 5-TAB COMMAND NAVIGATION ─── */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 6,
+          background: 'rgba(255, 255, 255, 0.04)',
+          padding: '6px',
+          borderRadius: 14,
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          marginBottom: 22,
+          overflowX: 'auto',
+        }}
+      >
+        <button
+          onClick={() => {
+            playClickSound()
+            setActiveTab('requests')
+          }}
+          style={{
+            flex: 1,
+            minWidth: 160,
+            padding: '10px 14px',
+            borderRadius: 10,
+            border: 'none',
+            background: activeTab === 'requests' ? '#10B981' : 'transparent',
+            color: activeTab === 'requests' ? '#000000' : '#FFFFFF',
+            fontSize: 12.5,
+            fontWeight: 800,
+            cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '16px',
-            background: 'rgba(3, 7, 5, 0.85)',
-            backdropFilter: 'blur(16px)',
-          }}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+            gap: 8,
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Bed size={16} />
+          Bed & Supply Triage
+          {pendingRequestsCount > 0 && (
+            <span style={{ padding: '2px 6px', borderRadius: 10, background: activeTab === 'requests' ? '#000' : '#EF4444', color: '#fff', fontSize: 10 }}>
+              {pendingRequestsCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => {
+            playClickSound()
+            setActiveTab('water_damage')
+          }}
+          style={{
+            flex: 1,
+            minWidth: 170,
+            padding: '10px 14px',
+            borderRadius: 10,
+            border: 'none',
+            background: activeTab === 'water_damage' ? '#0284C7' : 'transparent',
+            color: activeTab === 'water_damage' ? '#FFFFFF' : '#FFFFFF',
+            fontSize: 12.5,
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Droplets size={16} />
+          Citizen Water & Damage
+          {pendingReportsCount > 0 && (
+            <span style={{ padding: '2px 6px', borderRadius: 10, background: '#F59E0B', color: '#000', fontSize: 10 }}>
+              {pendingReportsCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => {
+            playClickSound()
+            setActiveTab('red_zones')
+          }}
+          style={{
+            flex: 1,
+            minWidth: 180,
+            padding: '10px 14px',
+            borderRadius: 10,
+            border: 'none',
+            background: activeTab === 'red_zones' ? '#DC2626' : 'transparent',
+            color: '#FFFFFF',
+            fontSize: 12.5,
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <AlertOctagon size={16} />
+          Red Zones & Safer Routes
+          {redZonesCount > 0 && (
+            <span style={{ padding: '2px 6px', borderRadius: 10, background: '#FEF08A', color: '#854D0E', fontSize: 10 }}>
+              {redZonesCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => {
+            playClickSound()
+            setActiveTab('ward_preparedness')
+          }}
+          style={{
+            flex: 1,
+            minWidth: 170,
+            padding: '10px 14px',
+            borderRadius: 10,
+            border: 'none',
+            background: activeTab === 'ward_preparedness' ? '#8B5CF6' : 'transparent',
+            color: '#FFFFFF',
+            fontSize: 12.5,
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <BarChart3 size={16} />
+          Ward Preparedness %
+        </button>
+
+        <button
+          onClick={() => {
+            playClickSound()
+            setActiveTab('relief_donations')
+          }}
+          style={{
+            flex: 1,
+            minWidth: 170,
+            padding: '10px 14px',
+            borderRadius: 10,
+            border: 'none',
+            background: activeTab === 'relief_donations' ? '#EC4899' : 'transparent',
+            color: '#FFFFFF',
+            fontSize: 12.5,
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Heart size={16} />
+          Relief Fund Audit (₹)
+        </button>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+          TAB 1: EMERGENCY BED & SUPPLY REQUESTS
+          ══════════════════════════════════════════════════════════════ */}
+      {activeTab === 'requests' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          {/* Filter Bar */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 10,
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: 12,
+              padding: '12px 14px',
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)' }} />
+              <input
+                type="text"
+                placeholder="Search citizen, ID, street..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px 8px 34px',
+                  borderRadius: 8,
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#FFFFFF',
+                  fontSize: 12,
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            <div>
+              <select
+                value={zoneFilter}
+                onChange={e => setZoneFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#FFFFFF',
+                  fontSize: 12,
+                  boxSizing: 'border-box',
+                }}
+              >
+                {BENGALURU_ZONES.map(z => (
+                  <option key={z} value={z} style={{ background: '#111827', color: '#fff' }}>
+                    Zone: {z}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#FFFFFF',
+                  fontSize: 12,
+                  boxSizing: 'border-box',
+                }}
+              >
+                <option value="All" style={{ background: '#111827' }}>Status: All</option>
+                <option value="PENDING" style={{ background: '#111827' }}>Status: Pending Triage</option>
+                <option value="APPROVED" style={{ background: '#111827' }}>Status: Approved / Arriving Soon</option>
+                <option value="DISPATCHED" style={{ background: '#111827' }}>Status: Dispatched</option>
+                <option value="DENIED" style={{ background: '#111827' }}>Status: Denied / Redirected</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Request Cards Grid */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {filteredRequests.length === 0 ? (
+              <div style={{ padding: '36px', textAlign: 'center', color: 'var(--tx-muted)', background: 'rgba(255,255,255,0.02)', borderRadius: 12 }}>
+                No requests found matching current filter criteria.
+              </div>
+            ) : (
+              filteredRequests.map(req => {
+                const isPending = req.status === 'PENDING'
+                const isApproved = req.status === 'APPROVED' || req.status === 'DISPATCHED'
+                const isDenied = req.status === 'DENIED'
+
+                return (
+                  <div
+                    key={req.id}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: `1px solid ${
+                        isPending
+                          ? 'rgba(245, 158, 11, 0.35)'
+                          : isApproved
+                          ? 'rgba(16, 185, 129, 0.35)'
+                          : 'rgba(239, 68, 68, 0.35)'
+                      }`,
+                      borderRadius: 14,
+                      padding: '16px 18px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: 14,
+                    }}
+                  >
+                    <div style={{ flex: '1 1 340px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 13, fontWeight: 900, color: '#FFFFFF' }}>{req.resourceType}</span>
+                        <span
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: 6,
+                            fontSize: 10,
+                            fontWeight: 800,
+                            background:
+                              isPending ? 'rgba(245, 158, 11, 0.2)' : isApproved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                            color: isPending ? '#F59E0B' : isApproved ? '#34D399' : '#EF4444',
+                          }}
+                        >
+                          {req.status === 'APPROVED' ? 'ACCEPTED & ARRIVING SOON' : req.status}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>ID: #{req.id}</span>
+                      </div>
+
+                      <div style={{ fontSize: 12.5, color: '#E5E7EB', marginBottom: 6 }}>
+                        <b>{req.requesterName}</b> ({req.requesterPhone}) • <span style={{ color: '#38BDF8' }}>{req.requesterEmail}</span>
+                      </div>
+
+                      <div style={{ fontSize: 12, color: 'var(--tx-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <MapPin size={13} color="#34D399" />
+                        {req.address} ({req.zone}) • {req.quantity} units requested
+                      </div>
+
+                      {req.patientNotes && (
+                        <div style={{ fontSize: 11.5, color: '#FCD34D', marginTop: 4, background: 'rgba(245, 158, 11, 0.08)', padding: '4px 8px', borderRadius: 6 }}>
+                          Note: {req.patientNotes}
+                        </div>
+                      )}
+
+                      {/* Dispatch info if approved */}
+                      {isApproved && (
+                        <div style={{ marginTop: 8, fontSize: 11.5, color: '#6EE7B7', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                          <span>🛏️ {req.hospitalBedNumber}</span>
+                          <span>🚑 {req.dispatchVehicle}</span>
+                          <span>⏱️ {req.dispatchEta}</span>
+                        </div>
+                      )}
+
+                      {/* Shelter redirection if denied */}
+                      {isDenied && req.redirectShelter && (
+                        <div style={{ marginTop: 8, fontSize: 11.5, color: '#FCA5A5' }}>
+                          🏛️ Redirected to: <b>{req.redirectShelter}</b>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {isPending ? (
+                        <>
+                          <button
+                            onClick={() => handleOpenApprove(req)}
+                            style={{
+                              padding: '8px 14px',
+                              borderRadius: 8,
+                              background: '#10B981',
+                              border: 'none',
+                              color: '#000000',
+                              fontSize: 12,
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                            }}
+                          >
+                            <Check size={14} /> Approve & Dispatch
+                          </button>
+                          <button
+                            onClick={() => handleOpenDeny(req)}
+                            style={{
+                              padding: '8px 14px',
+                              borderRadius: 8,
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              border: '1px solid #EF4444',
+                              color: '#EF4444',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                            }}
+                          >
+                            <X size={14} /> Deny & Redirect
+                          </button>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: 11.5, color: 'var(--tx-muted)', textAlign: 'right' }}>
+                          Triage Completed by<br />
+                          <b>{req.reviewedBy || 'Authority'}</b>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          TAB 2: CITIZEN WATER & DAMAGE REPORTS
+          ══════════════════════════════════════════════════════════════ */}
+      {activeTab === 'water_damage' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>
+                Citizen Flood Depth & Damage Registry
+              </h3>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--tx-muted)' }}>
+                Inspect water level in feet reported by citizens with direct verification and advisory publishing.
+              </p>
+            </div>
+
+            <div>
+              <select
+                value={reportZoneFilter}
+                onChange={e => setReportZoneFilter(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: '#FFFFFF',
+                  fontSize: 12,
+                }}
+              >
+                {BENGALURU_ZONES.map(z => (
+                  <option key={z} value={z} style={{ background: '#111827' }}>Zone: {z}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {filteredDamageReports.map(rep => {
+              const isCrit = rep.waterDepthFeet >= 3.5
+              const isHigh = rep.waterDepthFeet >= 2.0 && rep.waterDepthFeet < 3.5
+
+              return (
+                <div
+                  key={rep.id}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: 14,
+                    padding: '16px 18px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 16,
+                  }}
+                >
+                  <div style={{ flex: '1 1 360px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                      <span
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: 20,
+                          fontSize: 11,
+                          fontWeight: 900,
+                          background: isCrit ? 'rgba(239, 68, 68, 0.25)' : isHigh ? 'rgba(245, 158, 11, 0.25)' : 'rgba(56, 189, 248, 0.2)',
+                          color: isCrit ? '#EF4444' : isHigh ? '#F59E0B' : '#38BDF8',
+                          border: `1px solid ${isCrit ? '#EF4444' : isHigh ? '#F59E0B' : '#38BDF8'}`,
+                        }}
+                      >
+                        🌊 {rep.waterDepthFeet} FEET STANDING WATER ({Math.round(rep.waterDepthFeet * 30.48)} cm)
+                      </span>
+
+                      <span style={{ fontSize: 11, fontWeight: 800, color: '#FFFFFF', background: 'rgba(255,255,255,0.08)', padding: '2px 8px', borderRadius: 6 }}>
+                        {rep.damageType}
+                      </span>
+
+                      <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>#{rep.id}</span>
+                    </div>
+
+                    <div style={{ fontSize: 13.5, fontWeight: 800, color: '#FFFFFF', marginBottom: 4 }}>
+                      {rep.landmark} <span style={{ color: '#10B981', fontWeight: 600 }}>({rep.zone})</span>
+                    </div>
+
+                    <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.85)', marginBottom: 8, lineHeight: 1.5 }}>
+                      "{rep.damageDescription}"
+                    </div>
+
+                    <div style={{ fontSize: 11.5, color: 'var(--tx-muted)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      <span>Reported by: <b>{rep.reporterName}</b></span>
+                      <span>Email: <b style={{ color: '#38BDF8' }}>{rep.reporterEmail}</b></span>
+                      <span>Phone: <b>{rep.reporterPhone}</b></span>
+                      <span>Status: <b style={{ color: rep.status === 'ADVISORY_ISSUED' ? '#EF4444' : rep.status === 'VERIFIED' ? '#34D399' : '#F59E0B' }}>{rep.status}</b></span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {rep.status === 'PENDING_REVIEW' && (
+                      <button
+                        onClick={() => handleVerifyReport(rep)}
+                        style={{
+                          padding: '8px 14px',
+                          borderRadius: 8,
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          border: '1px solid #10B981',
+                          color: '#34D399',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <ShieldCheck size={14} /> Verify Depth
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => handleOpenAdvisoryModal(rep)}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: 8,
+                        background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+                        border: 'none',
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <Radio size={14} /> Issue Public Advisory
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          TAB 3: CROWDSOURCED RED ZONES & SAFER ALTERNATIVE ROUTES
+          ══════════════════════════════════════════════════════════════ */}
+      {activeTab === 'red_zones' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div style={{ marginBottom: 16 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>
+              🔴 Automated Crowdsourced Red Zones & Safer Bypass Routes
+            </h3>
+            <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--tx-muted)' }}>
+              When multiple residents report waterlogging in an area, SafeGround automatically marks it as a <b>Red Zone</b> and calculates an elevated alternative corridor.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {redZones.map(cluster => {
+              const safe = cluster.saferAlternativeRoute
+
+              return (
+                <div
+                  key={cluster.id}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.06)',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    borderRadius: 16,
+                    padding: '20px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {/* Top Badge */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: 20,
+                          fontSize: 11,
+                          fontWeight: 900,
+                          background: '#EF4444',
+                          color: '#FFFFFF',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <AlertOctagon size={14} />
+                        AUTO RED ZONE • {cluster.reportCount} CITIZEN FLOOD REPORTS
+                      </span>
+
+                      <span style={{ fontSize: 12, color: '#FCA5A5', fontWeight: 700 }}>
+                        Avg Depth: <b>{cluster.avgWaterDepth} Feet</b>
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => handleOpenAdvisoryModal(undefined, cluster)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 8,
+                        background: '#EF4444',
+                        border: 'none',
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <Radio size={14} /> Broadcast Warning & Divert
+                    </button>
+                  </div>
+
+                  <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 900, color: '#FFFFFF' }}>
+                    {cluster.hotspotName} ({cluster.zone})
+                  </h3>
+
+                  <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#FCA5A5' }}>
+                    ⛔ <b>Blocked Low-Lying Corridor:</b> {cluster.blockedCorridors}
+                  </p>
+
+                  {/* Safer Alternative Route Card */}
+                  <div
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.08)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      borderRadius: 12,
+                      padding: '16px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <Navigation size={18} color="#34D399" />
+                      <span style={{ fontSize: 12, fontWeight: 900, color: '#34D399', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        OFFICIAL SAFER ALTERNATIVE ROUTE (ELEVATED BYPASS)
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF', marginBottom: 6 }}>
+                      {safe.routeName}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, fontSize: 12, marginBottom: 8 }}>
+                      <div style={{ color: '#A7F3D0' }}>
+                        🏔️ <b>Terrain Elevation:</b> {safe.elevation}
+                      </div>
+                      <div style={{ color: '#A7F3D0' }}>
+                        📏 <b>Route Delta:</b> {safe.distanceDiff}
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', lineHeight: 1.5, background: 'rgba(0,0,0,0.2)', padding: '8px 12px', borderRadius: 8 }}>
+                      <b>Traffic Guidance:</b> {safe.instructions}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          TAB 4: WARD PREPAREDNESS MATRIX (PERCENTAGES & CHECKBOXES)
+          ══════════════════════════════════════════════════════════════ */}
+      {activeTab === 'ward_preparedness' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div style={{ marginBottom: 16 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>
+              📊 Ward-by-Ward Community Preparedness Matrix
+            </h3>
+            <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--tx-muted)' }}>
+              Calculated dynamically by taking the percentage prepared checkboxes of each resident in each BBMP zone.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: 14,
+            }}
+          >
+            {wardStats.map(ward => {
+              const pct = ward.preparednessPercentage
+              const isHigh = pct >= 70
+              const isMid = pct >= 50 && pct < 70
+              const barColor = isHigh ? '#10B981' : isMid ? '#F59E0B' : '#EF4444'
+
+              return (
+                <div
+                  key={ward.zone}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: 14,
+                    padding: '16px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#FFFFFF' }}>{ward.zone} Zone</h4>
+                      <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>{ward.residentsCount.toLocaleString()} residents surveyed</span>
+                    </div>
+
+                    <span
+                      style={{
+                        padding: '3px 8px',
+                        borderRadius: 12,
+                        fontSize: 10,
+                        fontWeight: 800,
+                        background:
+                          ward.vulnerabilityStatus === 'READY'
+                            ? 'rgba(16, 185, 129, 0.2)'
+                            : ward.vulnerabilityStatus === 'MODERATE_RISK'
+                            ? 'rgba(245, 158, 11, 0.2)'
+                            : 'rgba(239, 68, 68, 0.2)',
+                        color:
+                          ward.vulnerabilityStatus === 'READY'
+                            ? '#34D399'
+                            : ward.vulnerabilityStatus === 'MODERATE_RISK'
+                            ? '#F59E0B'
+                            : '#EF4444',
+                      }}
+                    >
+                      {ward.vulnerabilityStatus.replace('_', ' ')}
+                    </span>
+                  </div>
+
+                  {/* Preparedness Percentage Progress Bar */}
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, marginBottom: 4 }}>
+                      <span style={{ color: 'var(--tx-muted)' }}>Preparedness Score:</span>
+                      <span style={{ color: barColor }}>{pct}% Ready</span>
+                    </div>
+                    <div style={{ width: '100%', height: 8, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          width: `${pct}%`,
+                          height: '100%',
+                          background: barColor,
+                          borderRadius: 4,
+                          transition: 'width 0.4s ease',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Top Completed Checkbox Items */}
+                  <div style={{ marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#34D399', display: 'block', marginBottom: 4 }}>
+                      ✅ Top Completed Tasks (from User Checkboxes):
+                    </span>
+                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>
+                      {ward.topCompletedItems.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Critical Gaps */}
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#EF4444', display: 'block', marginBottom: 4 }}>
+                      ⚠️ Critical Preparedness Gaps:
+                    </span>
+                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: '#FCA5A5' }}>
+                      {ward.criticalGaps.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          TAB 5: DISASTER RELIEF FUND AUDIT (USER TOTALS)
+          ══════════════════════════════════════════════════════════════ */}
+      {activeTab === 'relief_donations' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          {/* Summary Metric Cards */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: 12,
+              marginBottom: 18,
+            }}
+          >
+            <div style={{ background: 'rgba(236, 72, 153, 0.12)', border: '1px solid rgba(236, 72, 153, 0.3)', padding: '14px', borderRadius: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx-muted)', textTransform: 'uppercase' }}>Total City Relief Funds</div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: '#F472B6' }}>
+                ₹{reliefTotals.totalAmount.toLocaleString('en-IN')}
+              </div>
+              <div style={{ fontSize: 11, color: '#FBCFE8', marginTop: 2 }}>Max contribution limit: ₹10 Lakh per transaction</div>
+            </div>
+
+            <div style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '14px', borderRadius: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx-muted)', textTransform: 'uppercase' }}>Contributing Donors</div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: '#34D399' }}>
+                {reliefTotals.totalDonors}
+              </div>
+              <div style={{ fontSize: 11, color: '#A7F3D0', marginTop: 2 }}>Citizens & Corporate relief trusts</div>
+            </div>
+
+            <div style={{ background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '14px', borderRadius: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx-muted)', textTransform: 'uppercase' }}>Transactions Audited</div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: '#38BDF8' }}>
+                {reliefTotals.totalTransactions}
+              </div>
+              <div style={{ fontSize: 11, color: '#BAE6FD', marginTop: 2 }}>All with 80G tax tokens</div>
+            </div>
+          </div>
+
+          {/* Search by User Email or Name */}
+          <div style={{ marginBottom: 14 }}>
+            <input
+              type="text"
+              placeholder="Search donor by personal/google email or name..."
+              value={donorSearch}
+              onChange={e => setDonorSearch(e.target.value)}
               style={{
                 width: '100%',
-                maxWidth: 540,
-                background: 'linear-gradient(145deg, #0C1E16 0%, #06110B 100%)',
-                border: '1px solid rgba(16, 185, 129, 0.5)',
-                borderRadius: 16,
-                padding: '24px 26px',
+                padding: '10px 14px',
+                borderRadius: 10,
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
                 color: '#FFFFFF',
-                boxShadow: '0 25px 60px rgba(0,0,0,0.85)',
+                fontSize: 13,
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          {/* User Donation Totals Table */}
+          <div
+            style={{
+              background: 'rgba(255, 255, 255, 0.02)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: 14,
+              overflow: 'hidden',
+            }}
+          >
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12.5 }}>
+              <thead>
+                <tr style={{ background: 'rgba(255, 255, 255, 0.05)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <th style={{ padding: '12px 14px', color: 'var(--tx-muted)' }}>Donor Name & Email</th>
+                  <th style={{ padding: '12px 14px', color: 'var(--tx-muted)' }}>Total Amount Contributed</th>
+                  <th style={{ padding: '12px 14px', color: 'var(--tx-muted)' }}>Donations Count</th>
+                  <th style={{ padding: '12px 14px', color: 'var(--tx-muted)' }}>Last Contribution</th>
+                  <th style={{ padding: '12px 14px', color: 'var(--tx-muted)' }}>Allocated Causes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDonors.map(donor => (
+                  <tr key={donor.donorEmail} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                    <td style={{ padding: '12px 14px' }}>
+                      <div style={{ fontWeight: 800, color: '#FFFFFF' }}>{donor.donorName}</div>
+                      <div style={{ fontSize: 11, color: '#F472B6' }}>{donor.donorEmail}</div>
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <span style={{ fontSize: 15, fontWeight: 900, color: '#34D399' }}>
+                        ₹{donor.totalAmount.toLocaleString('en-IN')}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 14px', color: '#E5E7EB' }}>
+                      {donor.donationCount} {donor.donationCount === 1 ? 'gift' : 'gifts'}
+                    </td>
+                    <td style={{ padding: '12px 14px', color: 'var(--tx-muted)', fontSize: 11.5 }}>
+                      {new Date(donor.lastDonationDate).toLocaleString('en-IN', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </td>
+                    <td style={{ padding: '12px 14px', color: 'rgba(255,255,255,0.85)', fontSize: 11.5 }}>
+                      {donor.causes.join(', ')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          MODAL: APPROVE EMERGENCY BED & DISPATCH
+          ══════════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {approveModalItem && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              background: 'rgba(5, 10, 8, 0.82)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 16,
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.94 }}
+              style={{
+                width: '100%',
+                maxWidth: 580,
+                background: '#121F19',
+                border: '1px solid rgba(52, 211, 153, 0.4)',
+                borderRadius: 18,
+                padding: 24,
+                color: '#FFFFFF',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.8)',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#34D399', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <CheckCircle2 size={18} />
-                  Approve & Allocate Resources ({approveModalItem.id})
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>
+                  Approve Request #{approveModalItem.id}
                 </h3>
                 <button
                   onClick={() => setApproveModalItem(null)}
-                  style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}
+                  style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}
                 >
                   <X size={18} />
                 </button>
               </div>
 
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 14 }}>
-                Approving <b>{approveModalItem.quantity}x {approveModalItem.resourceType}</b> for <b>{approveModalItem.requesterName}</b> ({approveModalItem.zone} Zone).
-              </div>
-
-              <form onSubmit={handleConfirmApprove} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <form onSubmit={handleConfirmApproval} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>
-                    Select Allocated Hospital or Depot
+                  <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                    Allocated Hospital / Relief Facility
                   </label>
                   <select
                     value={allocatedHospital}
                     onChange={e => setAllocatedHospital(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '10px 12px',
+                      padding: '8px 10px',
                       borderRadius: 8,
-                      background: 'rgba(255,255,255,0.08)',
+                      background: 'rgba(0,0,0,0.3)',
                       border: '1px solid rgba(255,255,255,0.15)',
-                      color: '#FFFFFF',
-                      fontSize: 13,
-                      cursor: 'pointer',
+                      color: '#fff',
+                      fontSize: 12.5,
                     }}
                   >
                     {HOSPITAL_OPTIONS.map(h => (
-                      <option key={h} value={h} style={{ background: '#111814', color: '#fff' }}>
-                        {h}
-                      </option>
+                      <option key={h} value={h} style={{ background: '#121F19' }}>{h}</option>
                     ))}
                   </select>
                 </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                      Bed Bay / Allocation Docket
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={bedNumber}
+                      onChange={e => setBedNumber(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: '#fff',
+                        fontSize: 12,
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                      Dispatch Vehicle Registration
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={dispatchVehicle}
+                      onChange={e => setDispatchVehicle(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: '#fff',
+                        fontSize: 12,
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                      Driver / Pilot Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={driverName}
+                      onChange={e => setDriverName(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: '#fff',
+                        fontSize: 12,
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                      Pilot Phone (Click-to-Call)
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={driverPhone}
+                      onChange={e => setDriverPhone(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: '#fff',
+                        fontSize: 12,
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>
-                    Official Dispatch & Bed Allocation Decision Notes
+                  <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                    Live Arrival Countdown (ETA)
                   </label>
-                  <textarea
-                    rows={3}
+                  <input
+                    type="text"
                     required
-                    value={approvalNotes}
-                    onChange={e => setApprovalNotes(e.target.value)}
+                    value={dispatchEta}
+                    onChange={e => setDispatchEta(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '10px 12px',
+                      padding: '8px 10px',
                       borderRadius: 8,
-                      background: 'rgba(255,255,255,0.08)',
+                      background: 'rgba(0,0,0,0.3)',
                       border: '1px solid rgba(255,255,255,0.15)',
-                      color: '#FFFFFF',
-                      fontSize: 13,
-                      lineHeight: 1.4,
+                      color: '#fff',
+                      fontSize: 12,
                       boxSizing: 'border-box',
                     }}
                   />
                 </div>
 
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 6 }}>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
                   <button
                     type="button"
                     onClick={() => setApproveModalItem(null)}
                     style={{
-                      padding: '9px 16px',
+                      padding: '8px 14px',
                       borderRadius: 8,
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'rgba(255,255,255,0.08)',
+                      border: 'none',
                       color: '#fff',
-                      fontSize: 13,
+                      fontSize: 12.5,
                       cursor: 'pointer',
                     }}
                   >
@@ -713,17 +1468,17 @@ export default function AuthorityRequestTriage() {
                   <button
                     type="submit"
                     style={{
-                      padding: '9px 20px',
+                      padding: '8px 18px',
                       borderRadius: 8,
-                      background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                      background: '#10B981',
                       border: 'none',
-                      color: '#030604',
-                      fontSize: 13,
+                      color: '#000000',
+                      fontSize: 12.5,
                       fontWeight: 800,
                       cursor: 'pointer',
                     }}
                   >
-                    Confirm Bed Allocation
+                    Confirm & Send Notification to {approveModalItem.requesterEmail}
                   </button>
                 </div>
               </form>
@@ -732,83 +1487,106 @@ export default function AuthorityRequestTriage() {
         )}
       </AnimatePresence>
 
-      {/* ─── Modal 2: Deny & Redirect ─── */}
+      {/* ══════════════════════════════════════════════════════════════
+          MODAL: DENY & REDIRECT REQUEST
+          ══════════════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {denyModalItem && (
-          <div style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-            background: 'rgba(3, 7, 5, 0.85)',
-            backdropFilter: 'blur(16px)',
-          }}>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              background: 'rgba(5, 10, 8, 0.82)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 16,
+            }}
+          >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.94 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              exit={{ opacity: 0, scale: 0.94 }}
               style={{
                 width: '100%',
                 maxWidth: 520,
-                background: 'linear-gradient(145deg, #1C100F 0%, #0D0606 100%)',
-                border: '1px solid rgba(239, 68, 68, 0.5)',
-                borderRadius: 16,
-                padding: '24px 26px',
+                background: '#1C1212',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                borderRadius: 18,
+                padding: 24,
                 color: '#FFFFFF',
-                boxShadow: '0 25px 60px rgba(0,0,0,0.85)',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#F87171', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <XCircle size={18} />
-                  Deny / Redirect Request ({denyModalItem.id})
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>
+                  Deny Request #{denyModalItem.id} & Redirect
                 </h3>
                 <button
                   onClick={() => setDenyModalItem(null)}
-                  style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}
+                  style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}
                 >
                   <X size={18} />
                 </button>
               </div>
 
-              <form onSubmit={handleConfirmDeny} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <form onSubmit={handleConfirmDenial} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>
-                    Official Municipal Rationale & Redirection Guidance
+                  <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                    Designated Relief Shelter (Redirection)
                   </label>
-                  <textarea
-                    rows={4}
+                  <input
+                    type="text"
                     required
-                    value={denialNotes}
-                    onChange={e => setDenialNotes(e.target.value)}
+                    value={redirectShelter}
+                    onChange={e => setRedirectShelter(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '10px 12px',
+                      padding: '8px 10px',
                       borderRadius: 8,
-                      background: 'rgba(255,255,255,0.08)',
+                      background: 'rgba(0,0,0,0.3)',
                       border: '1px solid rgba(255,255,255,0.15)',
-                      color: '#FFFFFF',
-                      fontSize: 13,
-                      lineHeight: 1.4,
+                      color: '#fff',
+                      fontSize: 12.5,
                       boxSizing: 'border-box',
                     }}
                   />
                 </div>
 
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 6 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                    Municipal Rationale
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={denialNotes}
+                    onChange={e => setDenialNotes(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      background: 'rgba(0,0,0,0.3)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#fff',
+                      fontSize: 12,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
                   <button
                     type="button"
                     onClick={() => setDenyModalItem(null)}
                     style={{
-                      padding: '9px 16px',
+                      padding: '8px 14px',
                       borderRadius: 8,
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'rgba(255,255,255,0.08)',
+                      border: 'none',
                       color: '#fff',
-                      fontSize: 13,
+                      fontSize: 12,
                       cursor: 'pointer',
                     }}
                   >
@@ -817,17 +1595,216 @@ export default function AuthorityRequestTriage() {
                   <button
                     type="submit"
                     style={{
-                      padding: '9px 20px',
+                      padding: '8px 18px',
                       borderRadius: 8,
-                      background: 'linear-gradient(135deg, #EF4444 0%, #B91C1C 100%)',
+                      background: '#EF4444',
                       border: 'none',
                       color: '#FFFFFF',
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: 800,
                       cursor: 'pointer',
                     }}
                   >
-                    Confirm Denial
+                    Confirm Redirection
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ══════════════════════════════════════════════════════════════
+          MODAL: PUBLISH OFFICIAL ADVISORY
+          ══════════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {advisoryModalOpen && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              background: 'rgba(5, 10, 8, 0.82)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 16,
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.94 }}
+              style={{
+                width: '100%',
+                maxWidth: 560,
+                background: '#181215',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                borderRadius: 18,
+                padding: 24,
+                color: '#FFFFFF',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Radio size={20} color="#EF4444" />
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>
+                    Publish Official Public Advisory
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setAdvisoryModalOpen(false)}
+                  style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handlePublishAdvisory} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                    Advisory Headline
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={advTitle}
+                    onChange={e => setAdvTitle(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      background: 'rgba(0,0,0,0.3)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#fff',
+                      fontSize: 12.5,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                      Affected Zone
+                    </label>
+                    <select
+                      value={advZone}
+                      onChange={e => setAdvZone(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: '#fff',
+                        fontSize: 12,
+                      }}
+                    >
+                      {BENGALURU_ZONES.filter(z => z !== 'All').map(z => (
+                        <option key={z} value={z} style={{ background: '#121F19' }}>{z}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                      Reported Water Depth
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={advWaterDepth}
+                      onChange={e => setAdvWaterDepth(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: '#fff',
+                        fontSize: 12,
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                    Safer Alternative Bypass Route (Instructions to Public)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={advSaferRoute}
+                    onChange={e => setAdvSaferRoute(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      background: 'rgba(0,0,0,0.3)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#fff',
+                      fontSize: 12,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                    Advisory Body & Public Safety Instructions
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={advMessage}
+                    onChange={e => setAdvMessage(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      background: 'rgba(0,0,0,0.3)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#fff',
+                      fontSize: 12,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setAdvisoryModalOpen(false)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 8,
+                      background: 'rgba(255,255,255,0.08)',
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: 12,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: 8,
+                      background: '#EF4444',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      fontSize: 12,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Broadcast to All Residents
                   </button>
                 </div>
               </form>

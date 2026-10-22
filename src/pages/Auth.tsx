@@ -95,13 +95,14 @@ export default function Auth() {
     setError(null)
     setGoogleLoading(true)
     try {
-      const { error } = await signInWithGoogle()
+      const emailToUse = email.trim().includes('@') ? email.trim() : undefined
+      const { error } = await signInWithGoogle(emailToUse)
       if (error) {
         setError(error)
         setGoogleLoading(false)
       } else {
         playSuccessSound()
-        toast.success('Google Verified', 'Signed in as Bengaluru Resident')
+        toast.success('Google Verified', `Signed in as ${emailToUse || 'Bengaluru Resident'}`)
         navigate(redirectPath, { replace: true })
       }
     } catch (err: any) {

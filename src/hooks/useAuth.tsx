@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
-import { saveUserRecord } from '../services/requestService'
+import { saveUserRecord, registerKnownEmail } from '../services/requestService'
 
 export type UserRole = 'citizen' | 'ksndmc' | 'bbmp' | 'hospital'
 
@@ -37,7 +37,7 @@ export interface AuthState {
   isConfigured: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (email: string, password: string, fullName: string, phone?: string, zone?: string) => Promise<{ error: string | null }>
-  signInWithGoogle: () => Promise<{ error: string | null }>
+  signInWithGoogle: (customEmail?: string) => Promise<{ error: string | null }>
   loginAsGuest: () => void
   loginAsRole: (role: UserRole) => void
   signOut: () => Promise<void>
@@ -191,6 +191,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const saveLocalUser = (mockUser: any, provider: 'email' | 'google' | 'role_preset' = 'email') => {
     localStorage.setItem('safeground_user', JSON.stringify(mockUser))
     setUser(mockUser)
+
+    const email = (mockUser.email || '').toLowerCase()
+    const isAuthority =
+      email.endsWith('@safeground.blr') ||
+      email.includes('bbmp.gov.in') ||
+      email.includes('ksndmc.kar.nic.in') ||
+      email.includes('victoria.blr.gov.in') ||
+      mockUser.user_metadata?.role_key === 'bbmp' ||
+      mockUser.user_metadata?.role_key === 'ksndmc' ||
+      mockUser.user_metadata?.role_key === 'hospital'
+
+    if (!isAuthority) {
+      try {
+        localStorage.setItem('safeground_primary_personal_user', JSON.stringify(mockUser))
+        registerKnownEmail(mockUser.email)
+      } catch {}
+    }
+
     saveUserRecord({
       id: mockUser.id,
       email: mockUser.email,
@@ -203,6 +221,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const loginAsRole = (role: UserRole) => {
+    if (role === 'citizen') {
+      try {
+        const savedPersonal = localStorage.getItem('safeground_primary_personal_user')
+        if (savedPersonal) {
+          const personalUser = JSON.parse(savedPersonal)
+          localStorage.setItem('safeground_user', JSON.stringify(personalUser))
+          setUser(personalUser)
+          return
+        }
+      } catch {}
+    }
+
     const preset = ROLE_PRESETS[role]
     const mockUser: any = {
       id: `role-${role}-${Date.now()}`,
@@ -331,13 +361,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null }
   }
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (customEmail?: string) => {
+    const targetEmail = customEmail?.trim() || 'bengaluru.resident@gmail.com'
+    const namePart = targetEmail.split('@')[0].replace(/[._]/g, ' ')
+    const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
+
     if (!isConfigured) {
       const mockUser: any = {
         id: 'google-user-' + Date.now(),
-        email: 'bengaluru.resident@gmail.com',
+        email: targetEmail,
         user_metadata: {
-          full_name: 'Bengaluru Resident',
+          full_name: formattedName,
           phone: '+91 98450 88219',
           zone: 'Yelahanka',
           role: 'Google Verified Citizen',

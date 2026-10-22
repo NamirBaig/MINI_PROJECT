@@ -6,7 +6,7 @@ import {
   ArrowRight, Activity, ShieldCheck, MapPin, CheckCircle2,
   ExternalLink, Waves, Zap, ChevronDown, ChevronUp, BellRing, Radio,
   PhoneCall, AlertOctagon, Share2, RefreshCw, X, Send, Compass,
-  Sparkles, LifeBuoy, Truck, Building2, CheckSquare, ShieldAlert
+  Sparkles, LifeBuoy, Truck, Building2, CheckSquare, ShieldAlert, Heart
 } from 'lucide-react'
 import type { WeatherData } from '../hooks/useWeather'
 import { BENGALURU_ZONES, BENGALURU_CLIMATE, FLOOD_PRONE_SPOTS } from '../data/bengaluru'
@@ -17,6 +17,8 @@ import AnimatedWeatherBadge, { AnimatedWeatherIcon } from '../components/Animate
 import EmergencyRequestModal from '../components/EmergencyRequestModal'
 import CitizenRequestTracker from '../components/CitizenRequestTracker'
 import AuthorityRequestTriage from '../components/AuthorityRequestTriage'
+import DisasterDonationModal from '../components/DisasterDonationModal'
+import { submitDamageReport } from '../services/incidentAndReliefService'
 
 interface DashboardProps {
   weatherData: WeatherData
@@ -190,6 +192,7 @@ export default function Dashboard({ weatherData }: DashboardProps) {
   const [shelterTarget, setShelterTarget] = useState('BBMP Ward 4 Community Hall, Yelahanka')
   const [trafficTarget, setTrafficTarget] = useState('Silk Board Service Road (Diverted to Elevated Flyover)')
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false)
+  const [donationModalOpen, setDonationModalOpen] = useState(false)
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -231,7 +234,25 @@ export default function Dashboard({ weatherData }: DashboardProps) {
   const handleReportSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     playSuccessSound()
-    toast.success('Waterlogging Report Logged', `Logged ${reportDepth} at ${reportStreet || 'Current Ward'}`)
+    const depthNumber =
+      reportDepth.includes('Chest') ? 5.5 :
+      reportDepth.includes('Waist') ? 3.5 :
+      reportDepth.includes('Knee') ? 1.8 : 0.8
+    try {
+      submitDamageReport({
+        userId: user?.id || 'citizen-anon',
+        reporterName: citizenName,
+        reporterEmail: user?.email || 'citizen@safeground.blr',
+        reporterPhone: user?.user_metadata?.phone || '+91 98450 12345',
+        zone: 'Mahadevapura',
+        landmark: reportStreet || 'Outer Ring Road Bellandur Corridor',
+        waterDepthFeet: depthNumber,
+        damageType: 'Road Submersion',
+        damageDescription: `Reported ${reportDepth} water standing along ${reportStreet || 'neighborhood street'}.`,
+        severity: depthNumber >= 3.5 ? 'CRITICAL' : 'HIGH',
+      })
+    } catch {}
+    toast.success('Waterlogging Report Logged', `Logged ${reportDepth} (${depthNumber} ft) at ${reportStreet || 'Current Ward'}`)
     setReportModalOpen(false)
     setReportStreet('')
   }
@@ -329,7 +350,15 @@ export default function Dashboard({ weatherData }: DashboardProps) {
                 onClick={() => {
                   playSuccessSound()
                   loginAsRole(item.role as UserRole)
-                  toast.success('Clearance Switched', `Active session: ${ROLE_PRESETS[item.role as UserRole].name}`)
+                  let toastName = ROLE_PRESETS[item.role as UserRole].name
+                  try {
+                    const saved = localStorage.getItem('safeground_primary_personal_user')
+                    if (saved && item.role === 'citizen') {
+                      const p = JSON.parse(saved)
+                      toastName = `${p.user_metadata?.full_name || p.email} (Personal Account)`
+                    }
+                  } catch {}
+                  toast.success('Clearance Switched', `Active session: ${toastName}`)
                 }}
                 style={{
                   padding: '6px 12px',
@@ -562,6 +591,26 @@ export default function Dashboard({ weatherData }: DashboardProps) {
               <div>
                 <div style={{ fontSize: 13.5, fontWeight: 800, color: '#F472B6' }}>Request Beds & Relief</div>
                 <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }}>ICU/Oxygen beds, water, boats</div>
+              </div>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { playClickSound(); setDonationModalOpen(true); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14,
+                background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.22) 0%, rgba(190, 24, 93, 0.08) 100%)',
+                border: '1px solid rgba(244, 114, 182, 0.45)', color: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
+                boxShadow: '0 4px 15px rgba(236, 72, 153, 0.2)',
+              }}
+            >
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #EC4899 0%, #BE185D 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', flexShrink: 0 }}>
+                <Heart size={20} fill="#FFFFFF" />
+              </div>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 900, color: '#F472B6' }}>💝 Donate for Flood Relief</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>Max ₹10 Lakh • 80G Tax Exemption</div>
               </div>
             </motion.button>
           </div>
@@ -1472,6 +1521,12 @@ export default function Dashboard({ weatherData }: DashboardProps) {
       <EmergencyRequestModal
         isOpen={emergencyModalOpen}
         onClose={() => setEmergencyModalOpen(false)}
+      />
+
+      {/* 12. Modal: Disaster Relief Fund Donation (Max ₹10 Lakh & Healing Heart) */}
+      <DisasterDonationModal
+        isOpen={donationModalOpen}
+        onClose={() => setDonationModalOpen(false)}
       />
     </div>
   )
