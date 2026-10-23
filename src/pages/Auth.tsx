@@ -103,18 +103,14 @@ export default function Auth() {
     setError(null)
     setGoogleLoading(true)
     try {
-      const emailToUse = email.trim().includes('@') ? email.trim() : undefined
-      const { error } = await signInWithGoogle(emailToUse)
+      const { error } = await signInWithGoogle()
       if (error) {
         setError(error)
         setGoogleLoading(false)
-      } else {
-        playSuccessSound()
-        toast.success('Google Verified', `Signed in as ${emailToUse || 'Bengaluru Resident'}`)
-        navigate(redirectPath, { replace: true })
       }
+      // On success, Supabase will automatically redirect to Google consent screen
     } catch (err: any) {
-      setError('Google Sign-In failed')
+      setError(err?.message || 'Google Sign-In failed')
       setGoogleLoading(false)
     }
   }

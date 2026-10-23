@@ -188,14 +188,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isConfigured = isSupabaseConfigured()
 
   useEffect(() => {
-    // Check initial local storage
+    // Populate from cached local storage immediately to prevent flicker
     const saved = localStorage.getItem('safeground_user') || localStorage.getItem('safeground_guest_user')
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
         setUser(parsed)
-        setLoading(false)
-        return
       } catch {
         localStorage.removeItem('safeground_user')
         localStorage.removeItem('safeground_guest_user')
@@ -207,22 +205,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
+    // Process Supabase auth user (including Google OAuth user)
+    const processSupabaseUser = (sbUser: User) => {
+      const meta = sbUser.user_metadata || {}
+      const fullName = meta.full_name || meta.name || sbUser.email?.split('@')[0] || 'Verified Resident'
+      const isGoogle = sbUser.app_metadata?.provider === 'google' || !!meta.avatar_url
+
+      const formatted: any = {
+        ...sbUser,
+        user_metadata: {
+          ...meta,
+          full_name: fullName,
+          role: meta.role || (isGoogle ? 'Google Verified Citizen' : 'Registered Citizen'),
+          role_key: (meta.role_key || 'citizen') as UserRole,
+          badge: meta.badge || (isGoogle ? 'GOOGLE VERIFIED' : 'CITIZEN'),
+          zone: meta.zone || 'Yelahanka',
+          phone: meta.phone || '',
+        },
+      }
+      setUser(formatted)
+      localStorage.setItem('safeground_user', JSON.stringify(formatted))
+      saveUserRecord({
+        id: sbUser.id,
+        email: sbUser.email || '',
+        fullName,
+        role: formatted.user_metadata.role,
+        provider: isGoogle ? 'google' : 'email',
+      })
+      return formatted
+    }
+
     // Get initial Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       if (session?.user) {
-        setUser(session.user as any)
+        processSupabaseUser(session.user)
       }
       setLoading(false)
     }).catch(() => {
       setLoading(false)
     })
 
-    // Listen for auth changes
+    // Listen for auth changes (including Google OAuth redirects!)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       if (session?.user) {
-        setUser(session.user as any)
+        processSupabaseUser(session.user)
       } else {
         const local = localStorage.getItem('safeground_user')
         if (!local) setUser(null)
@@ -409,27 +437,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null }
   }
 
-  const signInWithGoogle = async (customEmail?: string) => {
-    const targetEmail = customEmail?.trim() || 'bengaluru.resident@gmail.com'
-    const namePart = targetEmail.split('@')[0].replace(/[._]/g, ' ')
-    const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
-
-    const mockUser: any = {
-      id: 'google-user-' + Date.now(),
-      email: targetEmail,
-      user_metadata: {
-        full_name: formattedName,
-        phone: '+91 98450 88219',
-        zone: 'Yelahanka',
-        role: 'Google Verified Citizen',
-        department: 'Greater Bengaluru Network',
-        badge: 'GOOGLE VERIFIED',
-      },
-      aud: 'authenticated',
-      role: 'authenticated',
+  const signInWithGoogle = async () => {
+    if (!isConfigured) {
+      return { error: 'Supabase cloud configuration is missing.' }
     }
-    saveLocalUser(mockUser, 'google')
-    return { error: null }
+
+    try {
+      const redirectTo = `${window.location.origin}/dashboard`
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent', // Enforces Google to prompt for account chooser and permission consent screen ("Allow / Don't Allow")
+          },
+        },
+      })
+
+      if (error) {
+        return { error: error.message }
+      }
+      return { error: null }
+    } catch (err: any) {
+      return { error: err?.message || 'Failed to initialize Google Sign-In' }
+    }
   }
 
   const signOut = async () => {
