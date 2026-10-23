@@ -12,18 +12,7 @@ export default function FloatingReliefWidget() {
 
   return (
     <>
-      <div
-        style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          zIndex: 900,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'flex-end',
-          gap: '10px',
-        }}
-      >
+      <div className="floating-relief-container">
         <AnimatePresence>
           {expanded && (
             <motion.div

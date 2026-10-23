@@ -83,6 +83,7 @@ export interface DonationRecord {
   paymentMethod: string
   timestamp: string
   taxExemptionToken: string
+  donorLocation?: string
 }
 
 export interface UserDonationSummary {
@@ -813,6 +814,7 @@ export function submitDonation(data: {
   amount: number
   targetReliefCause: string
   paymentMethod: string
+  donorLocation?: string
 }): DonationRecord {
   if (data.amount > MAX_DONATION_AMOUNT) {
     throw new Error(`Maximum allowable donation per transaction is ₹10,00,000 (Rs 10 Lakh).`)
@@ -837,6 +839,7 @@ export function submitDonation(data: {
     paymentMethod: data.paymentMethod || 'UPI / NetBanking',
     timestamp: now,
     taxExemptionToken: `KA-80G-${taxSeq}`,
+    donorLocation: data.donorLocation || 'Bengaluru (Karnataka)',
   }
 
   const updated = [newDonation, ...all]

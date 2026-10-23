@@ -2,12 +2,14 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   HeartPulse, Sparkles, X, CheckCircle2, ShieldCheck, CreditCard,
-  Building2, Droplets, Bed, Truck, Copy, Download, Share2, Activity
+  Building2, Droplets, Bed, Truck, Copy, Download, Share2, Activity,
+  Navigation, MapPin, Crosshair
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../context/ToastContext'
 import { playClickSound, playSuccessSound } from '../utils/audioFeedback'
 import { submitDonation, MAX_DONATION_AMOUNT, type DonationRecord } from '../services/incidentAndReliefService'
+import { getDeviceLiveLocation } from '../utils/geolocation'
 
 interface DisasterDonationModalProps {
   isOpen: boolean
@@ -176,11 +178,30 @@ export default function DisasterDonationModal({ isOpen, onClose }: DisasterDonat
     return user?.email || 'citizen@gmail.com'
   })
   const [donorPhone, setDonorPhone] = useState(user?.user_metadata?.phone || '+91 98450 12345')
+  const [donorLocation, setDonorLocation] = useState<string>(user?.user_metadata?.zone ? `${user.user_metadata.zone}, Bengaluru` : 'Bengaluru (Karnataka)')
+  const [gpsLoading, setGpsLoading] = useState(false)
+  const [gpsLocked, setGpsLocked] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'NetBanking' | 'Card'>('UPI')
   const [submitting, setSubmitting] = useState(false)
 
   // Donation confirmation state
   const [completedDonation, setCompletedDonation] = useState<DonationRecord | null>(null)
+
+  const handleDetectDonorLocation = async () => {
+    setGpsLoading(true)
+    playClickSound()
+    try {
+      const loc = await getDeviceLiveLocation()
+      setDonorLocation(`${loc.nearestZone}, Bengaluru`)
+      setGpsLocked(true)
+      playSuccessSound()
+      toast.success('Live Location Linked', `Citizen contribution tagged from ${loc.nearestZone} Zone`)
+    } catch (err: any) {
+      toast.alert('Location Notice', err?.message || 'Could not lock GPS location')
+    } finally {
+      setGpsLoading(false)
+    }
+  }
 
   if (!isOpen) return null
 
@@ -229,6 +250,7 @@ export default function DisasterDonationModal({ isOpen, onClose }: DisasterDonat
         amount,
         targetReliefCause: targetCause,
         paymentMethod: `${paymentMethod} (BBMP Disaster Contingency)`,
+        donorLocation,
       })
 
       setSubmitting(false)
@@ -469,6 +491,55 @@ export default function DisasterDonationModal({ isOpen, onClose }: DisasterDonat
                     }}
                   />
                 </div>
+              </div>
+
+              {/* Donor Live Location Attachment */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: 10,
+                padding: '10px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <MapPin size={15} color="#34D399" />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {donorLocation}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--tx-muted)' }}>
+                      {gpsLocked ? '✓ GPS Verified Live Location' : 'Attach your live sector to receipt'}
+                    </div>
+                  </div>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                  onClick={handleDetectDonorLocation}
+                  disabled={gpsLoading}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    background: gpsLocked ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                    border: gpsLocked ? '1px solid #10B981' : '1px solid rgba(255, 255, 255, 0.15)',
+                    color: gpsLocked ? '#34D399' : '#FFFFFF',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    flexShrink: 0,
+                  }}
+                >
+                  <Navigation size={12} />
+                  {gpsLoading ? 'Locating...' : gpsLocked ? '✓ GPS Linked' : '📍 Auto GPS'}
+                </motion.button>
               </div>
 
               {/* Payment Mode Selector */}

@@ -2,12 +2,14 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, AlertTriangle, ShieldAlert, Bed, Droplets, Truck,
-  HeartPulse, Sparkles, Send, MapPin, Phone, User, CheckCircle2, Mail
+  HeartPulse, Sparkles, Send, MapPin, Phone, User, CheckCircle2, Mail,
+  Navigation, Crosshair
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../context/ToastContext'
 import { playClickSound, playSuccessSound, playAlertSound } from '../utils/audioFeedback'
 import { createEmergencyRequest, type UrgencyLevel } from '../services/requestService'
+import { getDeviceLiveLocation, type LiveLocationResult } from '../utils/geolocation'
 
 interface EmergencyRequestModalProps {
   isOpen: boolean
@@ -59,6 +61,26 @@ export default function EmergencyRequestModal({
   const [requesterPhone, setRequesterPhone] = useState(user?.user_metadata?.phone || '')
   const [patientNotes, setPatientNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [gpsLoading, setGpsLoading] = useState(false)
+  const [gpsResult, setGpsResult] = useState<LiveLocationResult | null>(null)
+
+  const handleAcquireGPS = async () => {
+    setGpsLoading(true)
+    playClickSound()
+    try {
+      const loc = await getDeviceLiveLocation()
+      setGpsResult(loc)
+      setZone(loc.nearestZone)
+      setAddress(loc.formattedAddress)
+      playSuccessSound()
+      toast.success('Live GPS Verified', `Locked into ${loc.nearestZone} Zone (±${loc.accuracy}m precision)`)
+    } catch (err: any) {
+      playAlertSound()
+      toast.alert('GPS Notice', err?.message || 'Could not lock GPS. Please type address manually.')
+    } finally {
+      setGpsLoading(false)
+    }
+  }
 
   if (!isOpen) return null
 
@@ -290,7 +312,55 @@ export default function EmergencyRequestModal({
               </div>
             </div>
 
-            {/* 3. Zone & Exact Address */}
+            {/* 3. Live GPS Auto-Detection & Exact Address */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(6, 11, 8, 0.5) 100%)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              borderRadius: 12,
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: '#34D399' }}>
+                  <Navigation size={14} /> LIVE GPS TRIAGE DISPATCH
+                </div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>
+                  {gpsResult
+                    ? `Locked: ${gpsResult.nearestZone} Zone (${gpsResult.latitude.toFixed(4)}, ${gpsResult.longitude.toFixed(4)}) ±${gpsResult.accuracy}m`
+                    : 'Auto-detect your location for instantaneous ambulance & NDRF boat dispatch'}
+                </div>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                type="button"
+                onClick={handleAcquireGPS}
+                disabled={gpsLoading}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: 8,
+                  background: gpsResult ? 'rgba(16, 185, 129, 0.25)' : 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                  border: gpsResult ? '1px solid #10B981' : 'none',
+                  color: '#FFFFFF',
+                  fontSize: 11.5,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  boxShadow: gpsResult ? 'none' : '0 0 12px rgba(16, 185, 129, 0.4)',
+                }}
+              >
+                <Crosshair size={13} />
+                {gpsLoading ? 'Acquiring GPS...' : gpsResult ? '✓ GPS Verified' : '📍 Use Live GPS Location'}
+              </motion.button>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6, color: '#E2E8F0' }}>
