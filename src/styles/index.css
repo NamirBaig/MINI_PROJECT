@@ -526,7 +526,22 @@ label {
   }
 }
 
-/* ─── Real Black-Theme Map Tiles (Zero API Key, OpenStreetMap) ─── */
+/* ─── Real Black-Theme Map Tiles (Esri World Dark Gray + Radar GPS) ─── */
+.esri-dark-base {
+  filter: brightness(0.65) contrast(1.45) saturate(0.2) !important;
+  -webkit-filter: brightness(0.65) contrast(1.45) saturate(0.2) !important;
+}
+
+.esri-dark-ref {
+  filter: brightness(1.05) contrast(1.15) !important;
+  -webkit-filter: brightness(1.05) contrast(1.15) !important;
+}
+
+.esri-satellite {
+  filter: brightness(0.6) contrast(1.3) !important;
+  -webkit-filter: brightness(0.6) contrast(1.3) !important;
+}
+
 .dark-tiles {
   filter: invert(100%) hue-rotate(180deg) brightness(72%) contrast(140%) grayscale(80%) !important;
   -webkit-filter: invert(100%) hue-rotate(180deg) brightness(72%) contrast(140%) grayscale(80%) !important;
@@ -535,11 +550,45 @@ label {
 .leaflet-container {
   background: #060908 !important;
   font-family: inherit;
+  outline: none;
 }
 
-.leaflet-tile {
-  filter: invert(100%) hue-rotate(180deg) brightness(72%) contrast(140%) grayscale(80%) !important;
-  -webkit-filter: invert(100%) hue-rotate(180deg) brightness(72%) contrast(140%) grayscale(80%) !important;
+@keyframes liveRadarPing {
+  0% { transform: scale(0.85); opacity: 0.85; }
+  60% { transform: scale(2.4); opacity: 0; }
+  100% { transform: scale(0.85); opacity: 0; }
+}
+
+.radar-ping-ring {
+  animation: liveRadarPing 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* ─── RiskMap Split-Screen & Mobile Responsiveness ───── */
+.riskmap-split-container {
+  display: grid;
+  grid-template-columns: minmax(340px, 420px) 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.riskmap-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100vh - 170px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+@media (max-width: 960px) {
+  .riskmap-split-container {
+    grid-template-columns: 1fr !important;
+  }
+  .riskmap-sidebar {
+    max-height: none !important;
+    overflow-y: visible !important;
+    order: 2;
+  }
 }
 
 /* ─── Page Container & Responsive Shell ──────────────── */
