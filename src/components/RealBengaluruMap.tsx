@@ -44,10 +44,11 @@ export default function RealBengaluruMap({
       minZoom: 10,
     })
 
-    // 2. Add Luxury Black-Theme CartoDB Dark Matter Tiles
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
+    // 2. Add High-Contrast Stealth Black OpenStreetMap Tiles (100% Free, Zero API Keys, Zero Watermarks)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      subdomains: ['a', 'b', 'c'],
       maxZoom: 19,
+      className: 'dark-tiles',
     }).addTo(map)
 
     // Add minimal zoom controls in top-right

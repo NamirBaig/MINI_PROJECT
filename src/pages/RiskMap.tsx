@@ -156,7 +156,7 @@ export default function RiskMap() {
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34D399', boxShadow: '0 0 8px #34D399' }} />
               REAL BLACK THEME MAP & INCIDENT ROUTING
             </span>
-            <span style={{ fontSize: 12, color: 'var(--tx-muted)' }}>CartoDB Dark Matter GIS</span>
+            <span style={{ fontSize: 12, color: 'var(--tx-muted)' }}>OpenStreetMap Stealth Black Grid</span>
           </div>
 
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: '#FFFFFF', letterSpacing: -0.5 }}>

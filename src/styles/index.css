@@ -526,6 +526,22 @@ label {
   }
 }
 
+/* ─── Real Black-Theme Map Tiles (Zero API Key, OpenStreetMap) ─── */
+.dark-tiles {
+  filter: invert(100%) hue-rotate(180deg) brightness(72%) contrast(140%) grayscale(80%) !important;
+  -webkit-filter: invert(100%) hue-rotate(180deg) brightness(72%) contrast(140%) grayscale(80%) !important;
+}
+
+.leaflet-container {
+  background: #060908 !important;
+  font-family: inherit;
+}
+
+.leaflet-tile {
+  filter: invert(100%) hue-rotate(180deg) brightness(72%) contrast(140%) grayscale(80%) !important;
+  -webkit-filter: invert(100%) hue-rotate(180deg) brightness(72%) contrast(140%) grayscale(80%) !important;
+}
+
 /* ─── Page Container & Responsive Shell ──────────────── */
 .page-container {
   padding: 32px 40px 80px;
