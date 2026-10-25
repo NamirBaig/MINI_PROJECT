@@ -15,8 +15,6 @@ import {
   subscribeToDonations,
   pullCloudReliefData
 } from '../services/incidentAndReliefService'
-import { validatePersonalEmail, sendEmailOtp, isEmailVerified } from '../services/emailService'
-import EmailOtpModal from '../components/EmailOtpModal'
 
 type Tab = 'login' | 'signup'
 
@@ -45,8 +43,6 @@ export default function Auth() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-  const [otpModalOpen, setOtpModalOpen] = useState(false)
-  const [pendingDebugOtp, setPendingDebugOtp] = useState<string | undefined>(undefined)
 
   const [reliefTotals, setReliefTotals] = useState(() => getTotalReliefFunds())
   const [latestDonations, setLatestDonations] = useState(() => getAllDonations())
@@ -63,26 +59,6 @@ export default function Auth() {
     return () => unsub()
   }, [])
 
-  const proceedWithSignUp = async (verifiedEmail?: string) => {
-    const targetEmail = verifiedEmail || email
-    setLoading(true)
-    setError(null)
-    try {
-      const { error } = await signUp(targetEmail, password, fullName, phone, zone)
-      if (error) {
-        setError(error)
-        setLoading(false)
-      } else {
-        playSuccessSound()
-        toast.success('Account Created', `Welcome to SafeGround, ${fullName}`)
-        navigate(redirectPath, { replace: true })
-      }
-    } catch (err: any) {
-      setError(err?.message || 'Registration failed')
-      setLoading(false)
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     playClickSound()
@@ -97,7 +73,7 @@ export default function Auth() {
           setLoading(false)
         } else {
           playSuccessSound()
-          toast.success('Welcome Back!', `Signed in successfully`)
+          toast.success('Welcome Back!', 'Signed in successfully')
           navigate(redirectPath, { replace: true })
         }
       } else {
@@ -107,34 +83,27 @@ export default function Auth() {
           return
         }
 
-        if (!password || password.length < 6) {
-          setError('Please choose a password with at least 6 characters.')
+        if (!email.trim()) {
+          setError('Please enter a username or email address.')
           setLoading(false)
           return
         }
 
-        // 1. Validate that personal email is syntactically valid and not a fake/disposable domain
-        const emailValidation = validatePersonalEmail(email)
-        if (!emailValidation.valid) {
-          setError(emailValidation.reason || 'Invalid email address')
+        if (!password || password.length < 4) {
+          setError('Please choose a password with at least 4 characters.')
           setLoading(false)
           return
         }
 
-        // 2. ALWAYS dispatch 6-digit OTP on signup - NEVER bypass!
-        setLoading(true)
-        const result = await sendEmailOtp(email, fullName)
-        setLoading(false)
-
-        if (!result.success) {
-          setError(result.message || 'Could not send verification code.')
-          return
+        const { error } = await signUp(email, password, fullName, phone, zone)
+        if (error) {
+          setError(error)
+          setLoading(false)
+        } else {
+          playSuccessSound()
+          toast.success('Account Created & Saved', `Welcome to SafeGround, ${fullName}! Your login details are saved.`)
+          navigate(redirectPath, { replace: true })
         }
-
-        setPendingDebugOtp(result.debugOtp)
-        setOtpModalOpen(true)
-        playSuccessSound()
-        toast.info('Verification Code Sent', `Check your email (${email}) for the 6-digit code.`)
       }
     } catch (err: any) {
       setError(err?.message || 'Authentication failed')
@@ -560,28 +529,6 @@ export default function Auth() {
           {/* Email / Password Form */}
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {tab === 'signup' && (
-              <div
-                style={{
-                  background: 'rgba(16, 185, 129, 0.08)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                  borderRadius: 10,
-                  padding: '10px 14px',
-                  fontSize: 12,
-                  color: '#E2E8F0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                }}
-              >
-                <ShieldCheck size={18} color="#34D399" style={{ flexShrink: 0 }} />
-                <div>
-                  <span style={{ fontWeight: 700, color: '#34D399' }}>Verified Email Security Protocol: </span>
-                  When you submit, an official 6-digit OTP code will be sent to your personal email inbox to verify before creating your account.
-                </div>
-              </div>
-            )}
-
-            {tab === 'signup' && (
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--tx-dim)' }}>
                   Full Name
@@ -670,14 +617,14 @@ export default function Auth() {
 
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--tx-dim)' }}>
-                {tab === 'login' ? 'Email or Authority Username (e.g. authority)' : 'Email Address'}
+                {tab === 'login' ? 'Username or Email Address' : 'Username or Email Address'}
               </label>
               <div style={{ position: 'relative' }}>
                 <Mail size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-muted)' }} />
                 <input
                   type="text"
                   required
-                  placeholder={tab === 'login' ? "authority (Disaster Command) or resident@email.com" : "resident@bengaluru.in"}
+                  placeholder={tab === 'login' ? "authority or your username / email" : "e.g. rohit or resident@bengaluru.in"}
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   style={{
@@ -793,10 +740,10 @@ export default function Auth() {
               }}
             >
               {loading ? (
-                tab === 'login' ? 'Authenticating...' : 'Sending 6-Digit Code to Email...'
+                tab === 'login' ? 'Authenticating...' : 'Saving Account...'
               ) : (
                 <>
-                  <span>{tab === 'login' ? 'Sign In to Cockpit' : 'Verify Email & Create Account'}</span>
+                  <span>{tab === 'login' ? 'Sign In to Cockpit' : 'Save Details & Create Account'}</span>
                   <ArrowRight size={16} />
                 </>
               )}
@@ -839,20 +786,6 @@ export default function Auth() {
           </div>
         </div>
       </div>
-
-      {/* 6-Digit Email OTP Security Verification Modal */}
-      <EmailOtpModal
-        isOpen={otpModalOpen}
-        email={email}
-        fullName={fullName}
-        purpose="signup"
-        initialDebugOtp={pendingDebugOtp}
-        onClose={() => setOtpModalOpen(false)}
-        onVerified={(verifiedEmail) => {
-          setOtpModalOpen(false)
-          proceedWithSignUp(verifiedEmail)
-        }}
-      />
     </div>
   )
 }

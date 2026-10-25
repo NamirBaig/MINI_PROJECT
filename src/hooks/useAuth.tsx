@@ -172,6 +172,47 @@ export const FIXED_AUTHORITIES = {
   },
 }
 
+export interface RegisteredAccount {
+  id: string
+  email: string
+  username: string
+  password: string
+  fullName: string
+  phone: string
+  zone: string
+  role: string
+  role_key: UserRole
+  createdAt: string
+}
+
+const REGISTERED_ACCOUNTS_KEY = 'safeground_registered_accounts'
+
+export function getRegisteredAccounts(): RegisteredAccount[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(REGISTERED_ACCOUNTS_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+export function saveRegisteredAccount(acc: RegisteredAccount) {
+  if (typeof window === 'undefined') return
+  try {
+    const list = getRegisteredAccounts()
+    const cleanEmail = acc.email.toLowerCase().trim()
+    const cleanUser = acc.username.toLowerCase().trim()
+    const filtered = list.filter(
+      a => a.email.toLowerCase().trim() !== cleanEmail && a.username.toLowerCase().trim() !== cleanUser
+    )
+    filtered.unshift(acc)
+    localStorage.setItem(REGISTERED_ACCOUNTS_KEY, JSON.stringify(filtered))
+  } catch (e) {
+    console.error('Error saving account to local store:', e)
+  }
+}
+
 const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -331,11 +372,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loginAsRole('citizen')
   }
 
-  const signIn = async (rawEmail: string, rawPass: string) => {
-    const input = (rawEmail || '').trim().toLowerCase()
+  const signIn = async (rawEmailOrUsername: string, rawPass: string) => {
+    const input = (rawEmailOrUsername || '').trim().toLowerCase()
     const pass = (rawPass || '').trim()
 
-    // 1. Check fixed authority accounts (instant login for BBMP, KSNDMC, Hospital, Citizen)
+    if (!input || !pass) {
+      return { error: 'Please enter your username/email and password.' }
+    }
+
+    // 1. Check fixed authority accounts (instant login for authority, bbmp, ksndmc, hospital)
     for (const authKey of Object.keys(FIXED_AUTHORITIES) as Array<keyof typeof FIXED_AUTHORITIES>) {
       const auth = FIXED_AUTHORITIES[authKey]
       if ((input === auth.email.toLowerCase() || input === auth.username.toLowerCase()) && pass === auth.password) {
@@ -359,17 +404,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (!isConfigured) {
-      const namePart = input.split('@')[0].replace('.', ' ')
-      const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
+    // 2. Check local saved registered accounts (instant match)
+    const registered = getRegisteredAccounts()
+    const matchedAccount = registered.find(
+      acc => acc.email.toLowerCase() === input || acc.username.toLowerCase() === input
+    )
+
+    if (matchedAccount) {
+      if (matchedAccount.password !== pass) {
+        return { error: 'Incorrect password. Please enter the password used when creating this account.' }
+      }
       const mockUser: any = {
-        id: 'user-' + Date.now(),
-        email: rawEmail,
+        id: matchedAccount.id,
+        email: matchedAccount.email,
         user_metadata: {
-          full_name: formattedName,
-          role: 'Verified Resident',
+          full_name: matchedAccount.fullName,
+          phone: matchedAccount.phone,
+          zone: matchedAccount.zone,
+          role: matchedAccount.role,
+          role_key: matchedAccount.role_key,
+          badge: 'CITIZEN',
           department: 'Bengaluru Citizen',
-          zone: 'Yelahanka',
         },
         aud: 'authenticated',
         role: 'authenticated',
@@ -378,63 +433,93 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: null }
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email: rawEmail, password: rawPass })
-    if (data?.user) {
-      setUser(data.user as any)
-      setSession(data.session)
-      localStorage.setItem('safeground_user', JSON.stringify(data.user))
-      saveUserRecord({
-        id: data.user.id,
-        email: data.user.email || rawEmail,
-        fullName: data.user.user_metadata?.full_name || rawEmail,
-        phone: data.user.user_metadata?.phone,
-        zone: data.user.user_metadata?.zone,
-        role: data.user.user_metadata?.role || 'Resident',
-        provider: 'email',
-      })
+    // 3. Fallback to Supabase if configured and user typed an email
+    if (isConfigured && input.includes('@')) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email: input, password: pass })
+        if (data?.user) {
+          setUser(data.user as any)
+          setSession(data.session)
+          localStorage.setItem('safeground_user', JSON.stringify(data.user))
+          saveUserRecord({
+            id: data.user.id,
+            email: data.user.email || input,
+            fullName: data.user.user_metadata?.full_name || input,
+            phone: data.user.user_metadata?.phone,
+            zone: data.user.user_metadata?.zone,
+            role: data.user.user_metadata?.role || 'Resident',
+            provider: 'email',
+          })
+          return { error: null }
+        }
+        if (error) {
+          return { error: error.message || 'Invalid credentials' }
+        }
+      } catch (err: any) {
+        return { error: err?.message || 'Login failed' }
+      }
     }
-    return { error: error?.message ?? null }
+
+    // 4. If account doesn't exist yet, return clear prompt to sign up
+    return { error: 'Account not found. Click "Sign Up" below to register this username/email.' }
   }
 
-  const signUp = async (email: string, password: string, fullName: string, phone?: string, zone?: string) => {
-    if (!isConfigured) {
-      const mockUser: any = {
-        id: 'user-' + Date.now(),
-        email,
-        user_metadata: {
-          full_name: fullName || email.split('@')[0],
-          phone: phone || '',
-          zone: zone || 'Yelahanka',
-          role: 'Registered Citizen',
-          department: 'Community Volunteer',
-        },
-        aud: 'authenticated',
-        role: 'authenticated',
-      }
-      saveLocalUser(mockUser, 'email')
-      return { error: null }
+  const signUp = async (rawEmailOrUsername: string, password: string, fullName: string, phone?: string, zone?: string) => {
+    const input = (rawEmailOrUsername || '').trim()
+    if (!input) return { error: 'Please enter a username or email address.' }
+    if (!password || password.length < 4) return { error: 'Please choose a password with at least 4 characters.' }
+
+    const isEmailFormat = input.includes('@')
+    const email = isEmailFormat ? input.toLowerCase() : `${input.toLowerCase()}@safeground.blr`
+    const username = input.split('@')[0].toLowerCase()
+    const now = new Date().toISOString()
+    const userId = `usr-${Date.now()}`
+
+    // 1. Save directly to registered accounts list in localStorage
+    const newAccount: RegisteredAccount = {
+      id: userId,
+      email,
+      username,
+      password: password.trim(),
+      fullName: fullName.trim() || username,
+      phone: phone || '',
+      zone: zone || 'Yelahanka',
+      role: 'Registered Citizen',
+      role_key: 'citizen',
+      createdAt: now,
+    }
+    saveRegisteredAccount(newAccount)
+
+    // 2. Register active session user immediately
+    const mockUser: any = {
+      id: userId,
+      email,
+      user_metadata: {
+        full_name: newAccount.fullName,
+        phone: newAccount.phone,
+        zone: newAccount.zone,
+        role: 'Registered Citizen',
+        role_key: 'citizen' as UserRole,
+        department: 'Community Citizen',
+        badge: 'CITIZEN',
+      },
+      aud: 'authenticated',
+      role: 'authenticated',
+    }
+    saveLocalUser(mockUser, 'email')
+
+    // 3. Optional background sync to Supabase without blocking
+    if (isConfigured && isEmailFormat) {
+      try {
+        supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: fullName, phone: phone || '', zone: zone || 'Yelahanka' } },
+        }).catch(() => {})
+      } catch {}
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName, phone: phone || '', zone: zone || 'Yelahanka' } },
-    })
-    if (data?.user) {
-      setUser(data.user as any)
-      setSession(data.session)
-      localStorage.setItem('safeground_user', JSON.stringify(data.user))
-      saveUserRecord({
-        id: data.user.id,
-        email: data.user.email || email,
-        fullName,
-        phone: phone || '',
-        zone: zone || 'Yelahanka',
-        role: 'Citizen',
-        provider: 'email',
-      })
-    }
-    return { error: error?.message ?? null }
+    return { error: null }
   }
 
   const signInWithGoogle = async () => {

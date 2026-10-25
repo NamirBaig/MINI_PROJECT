@@ -1,9 +1,10 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ShieldCheck, LogOut, User } from 'lucide-react'
 import { playClickSound } from '../utils/audioFeedback'
 import { useAuth } from '../hooks/useAuth'
+import DivyangjanLifelineModal from './DivyangjanLifelineModal'
 
 interface MobileHeaderProps {
   user: any
@@ -13,6 +14,7 @@ interface MobileHeaderProps {
 export default function MobileHeader({ user, onSignOut }: MobileHeaderProps) {
   const navigate = useNavigate()
   const { currentRole } = useAuth()
+  const [lifelineOpen, setLifelineOpen] = useState(false)
   const isAuthority = currentRole !== 'citizen'
 
   const displayName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Resident'
@@ -62,8 +64,36 @@ export default function MobileHeader({ user, onSignOut }: MobileHeaderProps) {
         </div>
       </Link>
 
-      {/* Right Controls: User/Logout */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* Right Controls: Lifeline + User/Logout */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* Divyangjan Lifeline Button */}
+        <motion.button
+          whileTap={{ scale: 0.92 }}
+          onClick={() => {
+            playClickSound()
+            setLifelineOpen(true)
+          }}
+          title="Divyangjan Lifeline (Voice, Sonar & Strobe)"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '5px 8px',
+            borderRadius: 18,
+            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.28), rgba(168, 85, 247, 0.28))',
+            border: '1px solid rgba(239, 68, 68, 0.65)',
+            color: '#FECACA',
+            fontSize: 10.5,
+            fontWeight: 800,
+            cursor: 'pointer',
+            boxShadow: '0 0 10px rgba(239, 68, 68, 0.35)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span>♿</span>
+          <span>Lifeline</span>
+        </motion.button>
+
         {/* User Status / Persona Switcher / Sign Out */}
         {user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
@@ -144,6 +174,12 @@ export default function MobileHeader({ user, onSignOut }: MobileHeaderProps) {
           </Link>
         )}
       </div>
+
+      {/* Divyangjan Lifeline Modal */}
+      <DivyangjanLifelineModal
+        isOpen={lifelineOpen}
+        onClose={() => setLifelineOpen(false)}
+      />
     </header>
   )
 }

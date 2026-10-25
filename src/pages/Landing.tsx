@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../context/ToastContext'
 import { playClickSound, playSuccessSound } from '../utils/audioFeedback'
 import AnimatedWeatherBadge, { AnimatedWeatherIcon, AnimatedWeatherBoxCanvas } from '../components/AnimatedWeatherBadge'
+import DivyangjanLifelineModal from '../components/DivyangjanLifelineModal'
 
 interface LandingProps {
   weatherData: WeatherData
@@ -56,6 +57,7 @@ export default function Landing({ weatherData }: LandingProps) {
   const { user, signOut } = useAuth()
   const toast = useToast()
   const [activeTab, setActiveTab] = useState<'telemetry' | 'replay' | 'research'>('telemetry')
+  const [lifelineOpen, setLifelineOpen] = useState(false)
   const headlineWords = ['PREPARE', 'BEFORE', 'THE', 'CRISIS.']
 
   const floodColor = weatherData.floodRiskToday > 60 ? '#EF4444' : weatherData.floodRiskToday > 35 ? '#F59E0B' : '#10B981'
@@ -155,7 +157,36 @@ export default function Landing({ weatherData }: LandingProps) {
           </nav>
 
           {/* Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Divyangjan Lifeline Quick Access */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                playClickSound()
+                setLifelineOpen(true)
+              }}
+              title="Launch Divyangjan Inclusive Lifeline (Voice, Sonar & Optical SOS)"
+              style={{
+                padding: '7px 13px',
+                borderRadius: 9999,
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(168, 85, 247, 0.22) 100%)',
+                border: '1.5px solid rgba(239, 68, 68, 0.6)',
+                color: '#FECACA',
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 0 14px rgba(239, 68, 68, 0.35)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span style={{ fontSize: 14 }}>♿</span>
+              <span>Lifeline</span>
+            </motion.button>
+
             <div className="desktop-nav">
               <AnimatedWeatherBadge
                 condition={weatherData.condition}
@@ -331,6 +362,95 @@ export default function Landing({ weatherData }: LandingProps) {
               onClick={() => handleGatedNav('/preparedness', 'Family Preparedness Plan')}
             >
               <CheckSquare size={18} color="#34D399" /> Family Preparedness Plan
+            </motion.button>
+          </motion.div>
+
+          {/* ─── ♿ Divyangjan Inclusive Lifeline Hero Banner ───────────────── */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
+            style={{
+              marginTop: 36,
+              background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.16) 0%, rgba(147, 51, 234, 0.18) 50%, rgba(16, 185, 129, 0.14) 100%)',
+              border: '1.5px solid rgba(248, 113, 113, 0.55)',
+              borderRadius: 22,
+              padding: '24px 28px',
+              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65), 0 0 35px rgba(239, 68, 68, 0.28)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 24,
+              flexWrap: 'wrap',
+              textAlign: 'left',
+            }}
+          >
+            <div style={{ flex: '1 1 480px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                <span style={{
+                  background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+                  color: '#FFFFFF',
+                  fontSize: 10.5,
+                  fontWeight: 900,
+                  padding: '3px 10px',
+                  borderRadius: 9999,
+                  letterSpacing: '0.06em',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                }}>
+                  <span className="live-dot" style={{ background: '#FFFFFF' }} />
+                  RPwD ACT 2016 COMPLIANT
+                </span>
+                <span style={{ color: '#FCA5A5', fontSize: 12, fontWeight: 700 }}>
+                  Bengaluru Divyangjan Disaster Inclusion Suite
+                </span>
+              </div>
+              <h2 style={{
+                fontSize: 'clamp(20px, 3vw, 26px)',
+                fontWeight: 900,
+                color: '#FFFFFF',
+                margin: '0 0 8px',
+                letterSpacing: '-0.01em',
+              }}>
+                ♿ Accessible Rescue & Sensory Guidance Lifeline
+              </h2>
+              <p style={{
+                fontSize: 14,
+                lineHeight: 1.6,
+                color: 'rgba(255, 255, 255, 0.8)',
+                margin: 0,
+              }}>
+                Tailored emergency tools for Bengaluru's blind, hearing-impaired, and locomotor-disabled citizens: <b>Web Speech voice navigation</b>, <b>3.5Hz optical SOS strobes</b>, <b>verified wheelchair ramps to high-ground shelters</b>, and <b>LifeBeacon™ roof signaling</b> for SDRF boats and drones.
+              </p>
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                playClickSound()
+                setLifelineOpen(true)
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #DC2626 0%, #9333EA 100%)',
+                border: 'none',
+                borderRadius: 14,
+                padding: '14px 26px',
+                color: '#FFFFFF',
+                fontWeight: 800,
+                fontSize: 14,
+                cursor: 'pointer',
+                boxShadow: '0 8px 25px rgba(220, 38, 38, 0.55)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                flexShrink: 0,
+              }}
+            >
+              <span style={{ fontSize: 18 }}>♿</span>
+              <span>Launch Assistive Mode</span>
+              <ArrowRight size={16} />
             </motion.button>
           </motion.div>
         </div>
@@ -789,6 +909,12 @@ export default function Landing({ weatherData }: LandingProps) {
           </div>
         </div>
       </footer>
+
+      {/* ─── Divyangjan Lifeline Modal ────────────────────────────────────── */}
+      <DivyangjanLifelineModal
+        isOpen={lifelineOpen}
+        onClose={() => setLifelineOpen(false)}
+      />
     </div>
   )
 }

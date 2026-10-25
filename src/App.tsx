@@ -90,7 +90,6 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <Navbar user={user} onSignOut={handleSignOut} weather={weather} />
         <MobileDock />
-        <FloatingReliefWidget />
         <main className="app-main-content">
           <AnimatePresence mode="wait">
             {children}
@@ -205,6 +204,7 @@ function AppRoutes() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <FloatingReliefWidget />
     </AnimatePresence>
   )
 }

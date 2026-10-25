@@ -4,11 +4,13 @@ import { HeartPulse, Droplets, X, ChevronUp, ShieldCheck } from 'lucide-react'
 import { playClickSound } from '../utils/audioFeedback'
 import DisasterDonationModal from './DisasterDonationModal'
 import CitizenDamageReportModal from './CitizenDamageReportModal'
+import DivyangjanLifelineModal from './DivyangjanLifelineModal'
 
 export default function FloatingReliefWidget() {
   const [expanded, setExpanded] = useState(false)
   const [donationOpen, setDonationOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const [lifelineOpen, setLifelineOpen] = useState(false)
 
   return (
     <>
@@ -125,6 +127,52 @@ export default function FloatingReliefWidget() {
                   <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Depth in Feet • Real-Time Alert</div>
                 </div>
               </motion.button>
+
+              {/* Divyangjan Lifeline Button */}
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  playClickSound()
+                  setLifelineOpen(true)
+                  setExpanded(false)
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(168, 85, 247, 0.24) 100%)',
+                  border: '1px solid rgba(248, 113, 113, 0.55)',
+                  color: '#FFFFFF',
+                  fontSize: '12.5px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #DC2626 0%, #9333EA 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    boxShadow: '0 0 10px rgba(220, 38, 38, 0.4)',
+                    fontSize: '16px',
+                  }}
+                >
+                  ♿
+                </div>
+                <div>
+                  <div style={{ color: '#FECACA', fontWeight: 800 }}>Divyangjan Lifeline</div>
+                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Voice • Strobe SOS • Shelters</div>
+                </div>
+              </motion.button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -194,6 +242,12 @@ export default function FloatingReliefWidget() {
       <CitizenDamageReportModal
         isOpen={reportOpen}
         onClose={() => setReportOpen(false)}
+      />
+
+      {/* Divyangjan Lifeline Modal */}
+      <DivyangjanLifelineModal
+        isOpen={lifelineOpen}
+        onClose={() => setLifelineOpen(false)}
       />
     </>
   )
