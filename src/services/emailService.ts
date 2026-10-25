@@ -7,6 +7,7 @@
 
 import type { EmergencyRequest } from './requestService'
 import type { DonationRecord } from './incidentAndReliefService'
+import { supabase } from '../lib/supabase'
 
 export interface EmailDeliveryResult {
   success: boolean
@@ -108,7 +109,7 @@ export function markEmailAsVerified(email: string): void {
 }
 
 /**
- * Generate a 6-digit numeric OTP and transmit to user's real email
+ * Generate a 6-digit numeric OTP and transmit to user's real email via Supabase Auth
  */
 export async function sendEmailOtp(
   email: string,
@@ -126,7 +127,7 @@ export async function sendEmailOtp(
     }
   }
 
-  // Generate cryptographically random 6-digit numeric OTP
+  // Generate cryptographically random 6-digit numeric OTP for fallback/local validation
   const otpCode = Math.floor(100000 + Math.random() * 900000).toString()
   const expiryTime = Date.now() + 5 * 60 * 1000 // 5 minutes validity
 
@@ -138,53 +139,39 @@ export async function sendEmailOtp(
     )
   }
 
-  // Retrieve optional EmailJS config from Vite environment
-  const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID
-  const templateId = import.meta.env.VITE_EMAILJS_OTP_TEMPLATE_ID || import.meta.env.VITE_EMAILJS_TEMPLATE_ID
-  const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+  // 1. Direct Native Supabase Auth OTP Email Dispatch (ZERO third-party accounts required)
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: trimmed,
+      options: {
+        shouldCreateUser: true,
+        data: { full_name: recipientName },
+      },
+    })
 
-  if (serviceId && templateId && publicKey) {
-    try {
-      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          service_id: serviceId,
-          template_id: templateId,
-          user_id: publicKey,
-          template_params: {
-            to_email: trimmed,
-            to_name: recipientName,
-            otp_code: otpCode,
-            app_name: 'SafeGround Bengaluru',
-            expires_in: '5 minutes',
-            subject: `[SafeGround] ${otpCode} is your Verification Code`,
-          },
-        }),
-      })
-
-      if (response.ok) {
-        console.info(`[SafeGround Email] Live OTP ${otpCode} delivered via EmailJS to ${trimmed}`)
-        return {
-          success: true,
-          provider: 'EMAILJS',
-          message: `6-digit security code sent to ${trimmed}`,
-          recipient: trimmed,
-          timestamp: new Date().toISOString(),
-          debugOtp: otpCode,
-        }
+    if (!error) {
+      console.info(`[SafeGround Supabase OTP] Verification email dispatched by Supabase to ${trimmed}`)
+      return {
+        success: true,
+        provider: 'DIRECT_API',
+        message: `6-digit security code sent to ${trimmed} via Supabase`,
+        recipient: trimmed,
+        timestamp: new Date().toISOString(),
+        debugOtp: otpCode,
       }
-    } catch (err) {
-      console.warn('[SafeGround Email] EmailJS network dispatch error, using fallback:', err)
+    } else {
+      console.warn('[SafeGround Supabase OTP Notice]:', error.message)
     }
+  } catch (err) {
+    console.warn('[SafeGround Supabase OTP Error]:', err)
   }
 
-  // Fallback Dev / Offline mode
+  // 2. Fallback Dev / Offline mode (if Supabase rate-limits or offline)
   console.info(`%c[SafeGround Security OTP] Code for ${trimmed}: ${otpCode}`, 'color: #34d399; font-weight: bold; font-size: 14px;')
   return {
     success: true,
     provider: 'SIMULATED_DEV',
-    message: `Verification code generated for ${trimmed}. (Check inbox / dev console)`,
+    message: `Verification code generated for ${trimmed}. (Check inbox / dev test button)`,
     recipient: trimmed,
     timestamp: new Date().toISOString(),
     debugOtp: otpCode,
@@ -192,45 +179,62 @@ export async function sendEmailOtp(
 }
 
 /**
- * Verify entered 6-digit OTP against stored code
+ * Verify entered 6-digit OTP against Supabase and session code
  */
-export function verifyEmailOtp(email: string, enteredOtp: string): { verified: boolean; message: string } {
+export async function verifyEmailOtp(
+  email: string,
+  enteredOtp: string
+): Promise<{ verified: boolean; message: string }> {
   if (typeof window === 'undefined') return { verified: false, message: 'Window not defined' }
   const trimmed = (email || '').trim().toLowerCase()
   const cleanOtp = (enteredOtp || '').trim()
 
-  const raw = sessionStorage.getItem(`${OTP_STORAGE_PREFIX}${trimmed}`)
-  if (!raw) {
-    return {
-      verified: false,
-      message: 'No verification code requested for this email. Please request a new code.',
-    }
-  }
-
+  // 1. Check Supabase verifyOtp first
   try {
-    const data = JSON.parse(raw)
-    if (Date.now() > data.expiresAt) {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: trimmed,
+      token: cleanOtp,
+      type: 'email',
+    })
+
+    if (!error && data?.user) {
       sessionStorage.removeItem(`${OTP_STORAGE_PREFIX}${trimmed}`)
-      return { verified: false, message: 'Verification code has expired. Please request a new one.' }
+      markEmailAsVerified(trimmed)
+      return { verified: true, message: 'Email address verified successfully with Supabase!' }
     }
-
-    if (data.otp !== cleanOtp) {
-      data.attempts = (data.attempts || 0) + 1
-      if (data.attempts >= 4) {
-        sessionStorage.removeItem(`${OTP_STORAGE_PREFIX}${trimmed}`)
-        return { verified: false, message: 'Too many incorrect attempts. Please request a new code.' }
-      }
-      sessionStorage.setItem(`${OTP_STORAGE_PREFIX}${trimmed}`, JSON.stringify(data))
-      return { verified: false, message: `Incorrect 6-digit code. ${4 - data.attempts} attempts remaining.` }
-    }
-
-    // Success: Clean up OTP and mark email as verified
-    sessionStorage.removeItem(`${OTP_STORAGE_PREFIX}${trimmed}`)
-    markEmailAsVerified(trimmed)
-    return { verified: true, message: 'Email address verified successfully!' }
-  } catch {
-    return { verified: false, message: 'Failed to validate code. Please try again.' }
+  } catch (err) {
+    console.warn('[SafeGround] Supabase verifyOtp check:', err)
   }
+
+  // 2. Fallback check for session code (allows instant testing if Supabase rate-limited)
+  const raw = sessionStorage.getItem(`${OTP_STORAGE_PREFIX}${trimmed}`)
+  if (raw) {
+    try {
+      const data = JSON.parse(raw)
+      if (Date.now() > data.expiresAt) {
+        sessionStorage.removeItem(`${OTP_STORAGE_PREFIX}${trimmed}`)
+        return { verified: false, message: 'Verification code has expired. Please request a new one.' }
+      }
+
+      if (data.otp === cleanOtp) {
+        sessionStorage.removeItem(`${OTP_STORAGE_PREFIX}${trimmed}`)
+        markEmailAsVerified(trimmed)
+        return { verified: true, message: 'Email address verified successfully!' }
+      } else {
+        data.attempts = (data.attempts || 0) + 1
+        if (data.attempts >= 4) {
+          sessionStorage.removeItem(`${OTP_STORAGE_PREFIX}${trimmed}`)
+          return { verified: false, message: 'Too many incorrect attempts. Please request a new code.' }
+        }
+        sessionStorage.setItem(`${OTP_STORAGE_PREFIX}${trimmed}`, JSON.stringify(data))
+        return { verified: false, message: `Incorrect 6-digit code. ${4 - data.attempts} attempts remaining.` }
+      }
+    } catch {
+      return { verified: false, message: 'Failed to validate code. Please try again.' }
+    }
+  }
+
+  return { verified: false, message: 'Invalid or expired verification code. Please request a new one.' }
 }
 
 /**

@@ -123,7 +123,7 @@ export default function EmailOtpModal({
     }
   }
 
-  const verifyCode = (codeToVerify?: string) => {
+  const verifyCode = async (codeToVerify?: string) => {
     const fullCode = codeToVerify || digits.join('')
     if (fullCode.length !== 6) {
       setErrorMsg('Please enter all 6 digits of the verification code.')
@@ -133,7 +133,7 @@ export default function EmailOtpModal({
     setVerifying(true)
     setErrorMsg(null)
 
-    const result = verifyEmailOtp(email, fullCode)
+    const result = await verifyEmailOtp(email, fullCode)
     if (result.verified) {
       playSuccessSound()
       setSuccessMsg('Email verified successfully! Securing connection...')
