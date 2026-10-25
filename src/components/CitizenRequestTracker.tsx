@@ -15,6 +15,7 @@ import {
   subscribeToRequests,
   type EmergencyRequest
 } from '../services/requestService'
+import { sendEmergencyDispatchEmail } from '../services/emailService'
 import { playClickSound, playSuccessSound, playAlertSound } from '../utils/audioFeedback'
 import EmergencyRequestModal from './EmergencyRequestModal'
 
@@ -34,6 +35,7 @@ export default function CitizenRequestTracker({ onRequestClick }: CitizenRequest
   
   // Official Dispatch Email Memo Modal
   const [emailMemoRequest, setEmailMemoRequest] = useState<EmergencyRequest | null>(null)
+  const [emailSending, setEmailSending] = useState<boolean>(false)
 
   // Discovered emails across sessions
   const [knownEmails, setKnownEmails] = useState<string[]>([])
@@ -926,7 +928,40 @@ export default function CitizenRequestTracker({ onRequestClick }: CitizenRequest
               </div>
 
               {/* Modal Actions */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 10, marginTop: 16 }}>
+                <button
+                  type="button"
+                  disabled={emailSending}
+                  onClick={async () => {
+                    playClickSound()
+                    setEmailSending(true)
+                    try {
+                      const res = await sendEmergencyDispatchEmail(emailMemoRequest)
+                      playSuccessSound()
+                      toast.success('Dispatched to Inbox', `Official memorandum sent to ${emailMemoRequest.requesterEmail}`)
+                    } catch {
+                      toast.alert('Notice', 'Failed to dispatch email.')
+                    } finally {
+                      setEmailSending(false)
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '9px 16px',
+                    borderRadius: 8,
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                    color: '#38BDF8',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: emailSending ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <Mail size={13} /> {emailSending ? 'Sending to Inbox...' : `Send to Personal Inbox`}
+                </button>
+
                 <button
                   onClick={() => {
                     toast.copy(emailMemoRequest.id)

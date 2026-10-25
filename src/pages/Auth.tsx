@@ -15,6 +15,8 @@ import {
   subscribeToDonations,
   pullCloudReliefData
 } from '../services/incidentAndReliefService'
+import { validatePersonalEmail, sendEmailOtp, isEmailVerified } from '../services/emailService'
+import EmailOtpModal from '../components/EmailOtpModal'
 
 type Tab = 'login' | 'signup'
 
@@ -43,6 +45,8 @@ export default function Auth() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [otpModalOpen, setOtpModalOpen] = useState(false)
+  const [pendingDebugOtp, setPendingDebugOtp] = useState<string | undefined>(undefined)
 
   const [reliefTotals, setReliefTotals] = useState(() => getTotalReliefFunds())
   const [latestDonations, setLatestDonations] = useState(() => getAllDonations())
@@ -58,6 +62,26 @@ export default function Auth() {
     })
     return () => unsub()
   }, [])
+
+  const proceedWithSignUp = async (verifiedEmail?: string) => {
+    const targetEmail = verifiedEmail || email
+    setLoading(true)
+    setError(null)
+    try {
+      const { error } = await signUp(targetEmail, password, fullName, phone, zone)
+      if (error) {
+        setError(error)
+        setLoading(false)
+      } else {
+        playSuccessSound()
+        toast.success('Account Created', `Welcome to SafeGround, ${fullName}`)
+        navigate(redirectPath, { replace: true })
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Registration failed')
+      setLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,15 +106,31 @@ export default function Auth() {
           setLoading(false)
           return
         }
-        const { error } = await signUp(email, password, fullName, phone, zone)
-        if (error) {
-          setError(error)
+
+        // 1. Validate that personal email is syntactically valid and not a fake/disposable domain
+        const emailValidation = validatePersonalEmail(email)
+        if (!emailValidation.valid) {
+          setError(emailValidation.reason || 'Invalid email address')
           setLoading(false)
-        } else {
-          playSuccessSound()
-          toast.success('Account Created', `Welcome to SafeGround, ${fullName}`)
-          navigate(redirectPath, { replace: true })
+          return
         }
+
+        // 2. Enforce OTP verification if email not yet verified
+        if (!isEmailVerified(email)) {
+          setLoading(false)
+          const result = await sendEmailOtp(email, fullName)
+          if (!result.success) {
+            setError(result.message)
+            return
+          }
+          setPendingDebugOtp(result.debugOtp)
+          setOtpModalOpen(true)
+          toast.info('Verification Code Dispatched', `A 6-digit confirmation code was sent to ${email}`)
+          return
+        }
+
+        // 3. Email is verified -> proceed with registration
+        await proceedWithSignUp(email)
       }
     } catch (err: any) {
       setError(err?.message || 'Authentication failed')
@@ -771,6 +811,20 @@ export default function Auth() {
           </div>
         </div>
       </div>
+
+      {/* 6-Digit Email OTP Security Verification Modal */}
+      <EmailOtpModal
+        isOpen={otpModalOpen}
+        email={email}
+        fullName={fullName}
+        purpose="signup"
+        initialDebugOtp={pendingDebugOtp}
+        onClose={() => setOtpModalOpen(false)}
+        onVerified={(verifiedEmail) => {
+          setOtpModalOpen(false)
+          proceedWithSignUp(verifiedEmail)
+        }}
+      />
     </div>
   )
 }

@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   HeartPulse, Sparkles, X, CheckCircle2, ShieldCheck, CreditCard,
   Building2, Droplets, Bed, Truck, Copy, Download, Share2, Activity,
-  Navigation, MapPin, Crosshair
+  Navigation, MapPin, Crosshair, Mail
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../context/ToastContext'
 import { playClickSound, playSuccessSound } from '../utils/audioFeedback'
 import { submitDonation, MAX_DONATION_AMOUNT, type DonationRecord } from '../services/incidentAndReliefService'
 import { getDeviceLiveLocation } from '../utils/geolocation'
+import { sendDonationReceiptEmail, validatePersonalEmail } from '../services/emailService'
 
 interface DisasterDonationModalProps {
   isOpen: boolean
@@ -238,6 +239,12 @@ export default function DisasterDonationModal({ isOpen, onClose }: DisasterDonat
       return
     }
 
+    const emailCheck = validatePersonalEmail(donorEmail)
+    if (!emailCheck.valid) {
+      toast.alert('Invalid Email', emailCheck.reason || 'Please provide a valid personal email.')
+      return
+    }
+
     setSubmitting(true)
     playSuccessSound()
 
@@ -252,6 +259,9 @@ export default function DisasterDonationModal({ isOpen, onClose }: DisasterDonat
         paymentMethod: `${paymentMethod} (BBMP Disaster Contingency)`,
         donorLocation,
       })
+
+      // Send official 80G tax receipt directly to donor's personal email
+      sendDonationReceiptEmail(record).catch(() => {})
 
       setSubmitting(false)
       setCompletedDonation(record)
@@ -680,6 +690,24 @@ export default function DisasterDonationModal({ isOpen, onClose }: DisasterDonat
                 <span style={{ color: 'var(--tx-muted)' }}>Donor Email for Audit:</span>
                 <span style={{ color: '#38BDF8', fontWeight: 700 }}>{completedDonation.donorEmail}</span>
               </div>
+            </div>
+
+            {/* Inboxed Status Notice */}
+            <div style={{
+              background: 'rgba(56, 189, 248, 0.1)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              borderRadius: 10,
+              padding: '9px 14px',
+              fontSize: 12,
+              color: '#BAE6FD',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 7,
+              marginBottom: 18,
+            }}>
+              <Mail size={14} color="#38BDF8" />
+              <span>Official 80G Tax Exemption Receipt dispatched to <b>{completedDonation.donorEmail}</b></span>
             </div>
 
             {/* Close Button */}

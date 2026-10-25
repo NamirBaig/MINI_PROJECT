@@ -5,6 +5,7 @@
 // ============================================================
 
 import { supabase } from '../lib/supabase'
+import { sendEmergencyDispatchEmail } from './emailService'
 
 export type UrgencyLevel = 'CRITICAL' | 'HIGH' | 'MODERATE'
 export type RequestStatus = 'PENDING' | 'APPROVED' | 'DISPATCHED' | 'DENIED'
@@ -515,6 +516,10 @@ export function approveEmergencyRequest(
     try {
       supabase.from('emergency_requests').upsert(toSupabaseRequest(target)).then(() => {})
     } catch {}
+    // Dispatch real email with hospital & ambulance details to citizen's personal inbox
+    try {
+      sendEmergencyDispatchEmail(target).catch(() => {})
+    } catch {}
   }
 
   notifyListeners()
@@ -570,6 +575,10 @@ export function denyEmergencyRequest(
   if (target) {
     try {
       supabase.from('emergency_requests').upsert(toSupabaseRequest(target)).then(() => {})
+    } catch {}
+    // Dispatch redirection guidance email to citizen's personal inbox
+    try {
+      sendEmergencyDispatchEmail(target).catch(() => {})
     } catch {}
   }
 

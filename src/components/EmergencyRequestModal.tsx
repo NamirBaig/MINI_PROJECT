@@ -10,6 +10,7 @@ import { useToast } from '../context/ToastContext'
 import { playClickSound, playSuccessSound, playAlertSound } from '../utils/audioFeedback'
 import { createEmergencyRequest, type UrgencyLevel } from '../services/requestService'
 import { getDeviceLiveLocation, type LiveLocationResult } from '../utils/geolocation'
+import { validatePersonalEmail } from '../services/emailService'
 
 interface EmergencyRequestModalProps {
   isOpen: boolean
@@ -89,6 +90,13 @@ export default function EmergencyRequestModal({
     if (!address.trim() || !requesterName.trim() || !requesterPhone.trim() || !patientNotes.trim() || !requesterEmail.trim()) {
       playAlertSound()
       toast.alert('Incomplete Request', 'Please fill in address, personal email, contact phone, and medical notes.')
+      return
+    }
+
+    const emailCheck = validatePersonalEmail(requesterEmail)
+    if (!emailCheck.valid) {
+      playAlertSound()
+      toast.alert('Invalid Email', emailCheck.reason || 'Please provide a valid personal email for dispatch alerts.')
       return
     }
 
