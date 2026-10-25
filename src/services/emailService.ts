@@ -189,7 +189,7 @@ export async function verifyEmailOtp(
   const trimmed = (email || '').trim().toLowerCase()
   const cleanOtp = (enteredOtp || '').trim()
 
-  // 1. Check Supabase verifyOtp first
+  // 1. Check Supabase verifyOtp first (supports both email and signup verification types)
   try {
     const { data, error } = await supabase.auth.verifyOtp({
       email: trimmed,
@@ -203,7 +203,23 @@ export async function verifyEmailOtp(
       return { verified: true, message: 'Email address verified successfully with Supabase!' }
     }
   } catch (err) {
-    console.warn('[SafeGround] Supabase verifyOtp check:', err)
+    console.warn('[SafeGround] Supabase verifyOtp email check:', err)
+  }
+
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: trimmed,
+      token: cleanOtp,
+      type: 'signup',
+    })
+
+    if (!error && data?.user) {
+      sessionStorage.removeItem(`${OTP_STORAGE_PREFIX}${trimmed}`)
+      markEmailAsVerified(trimmed)
+      return { verified: true, message: 'Email address verified successfully with Supabase!' }
+    }
+  } catch (err) {
+    console.warn('[SafeGround] Supabase verifyOtp signup check:', err)
   }
 
   // 2. Fallback check for session code (allows instant testing if Supabase rate-limited)

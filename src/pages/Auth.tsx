@@ -107,6 +107,12 @@ export default function Auth() {
           return
         }
 
+        if (!password || password.length < 6) {
+          setError('Please choose a password with at least 6 characters.')
+          setLoading(false)
+          return
+        }
+
         // 1. Validate that personal email is syntactically valid and not a fake/disposable domain
         const emailValidation = validatePersonalEmail(email)
         if (!emailValidation.valid) {
@@ -115,22 +121,20 @@ export default function Auth() {
           return
         }
 
-        // 2. Enforce OTP verification if email not yet verified
-        if (!isEmailVerified(email)) {
-          setLoading(false)
-          const result = await sendEmailOtp(email, fullName)
-          if (!result.success) {
-            setError(result.message)
-            return
-          }
-          setPendingDebugOtp(result.debugOtp)
-          setOtpModalOpen(true)
-          toast.info('Verification Code Dispatched', `A 6-digit confirmation code was sent to ${email}`)
+        // 2. ALWAYS dispatch 6-digit OTP on signup - NEVER bypass!
+        setLoading(true)
+        const result = await sendEmailOtp(email, fullName)
+        setLoading(false)
+
+        if (!result.success) {
+          setError(result.message || 'Could not send verification code.')
           return
         }
 
-        // 3. Email is verified -> proceed with registration
-        await proceedWithSignUp(email)
+        setPendingDebugOtp(result.debugOtp)
+        setOtpModalOpen(true)
+        playSuccessSound()
+        toast.info('Verification Code Sent', `Check your email (${email}) for the 6-digit code.`)
       }
     } catch (err: any) {
       setError(err?.message || 'Authentication failed')
@@ -766,9 +770,11 @@ export default function Auth() {
                 marginTop: 6,
               }}
             >
-              {loading ? 'Authenticating...' : (
+              {loading ? (
+                tab === 'login' ? 'Authenticating...' : 'Sending 6-Digit Code to Email...'
+              ) : (
                 <>
-                  <span>{tab === 'login' ? 'Sign In to Cockpit' : 'Create Account'}</span>
+                  <span>{tab === 'login' ? 'Sign In to Cockpit' : 'Verify Email & Create Account'}</span>
                   <ArrowRight size={16} />
                 </>
               )}
