@@ -44,6 +44,9 @@ export interface EmergencyRequest {
   emailNotificationSent?: boolean
   emailNotificationTimestamp?: string | null
   auditTrail?: RequestAuditLog[]
+  isDivyangjanPriority?: boolean
+  vulnerabilityType?: string
+  assistiveRequirements?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -114,7 +117,9 @@ export function toSupabaseRequest(req: EmergencyRequest) {
     resource_type: req.resourceType,
     quantity: req.quantity,
     urgency: req.urgency,
-    patient_notes: req.patientNotes,
+    patient_notes: req.isDivyangjanPriority && !req.patientNotes.includes('[DIVYANGJAN PRIORITY]')
+      ? `[DIVYANGJAN PRIORITY] [DIVYANGJAN: ${req.vulnerabilityType || 'Vulnerable Citizen'}] ${req.patientNotes}`
+      : req.patientNotes,
     status: req.status,
     allocated_hospital: req.allocatedHospital,
     hospital_bed_number: req.hospitalBedNumber,
@@ -157,6 +162,9 @@ export function fromSupabaseRequest(row: any): EmergencyRequest {
     reviewedAt: row.reviewed_at || null,
     actionNotes: row.action_notes || null,
     auditTrail: Array.isArray(row.audit_trail) ? row.audit_trail : [],
+    isDivyangjanPriority: row.is_divyangjan_priority ?? (row.patient_notes && row.patient_notes.includes('[DIVYANGJAN PRIORITY]')),
+    vulnerabilityType: row.vulnerability_type || (row.patient_notes?.match(/\[DIVYANGJAN: ([^\]]+)\]/)?.[1]) || undefined,
+    assistiveRequirements: row.assistive_requirements || undefined,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
   }

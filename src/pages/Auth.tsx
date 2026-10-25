@@ -560,6 +560,28 @@ export default function Auth() {
           {/* Email / Password Form */}
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {tab === 'signup' && (
+              <div
+                style={{
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  borderRadius: 10,
+                  padding: '10px 14px',
+                  fontSize: 12,
+                  color: '#E2E8F0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <ShieldCheck size={18} color="#34D399" style={{ flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontWeight: 700, color: '#34D399' }}>Verified Email Security Protocol: </span>
+                  When you submit, an official 6-digit OTP code will be sent to your personal email inbox to verify before creating your account.
+                </div>
+              </div>
+            )}
+
+            {tab === 'signup' && (
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--tx-dim)' }}>
                   Full Name

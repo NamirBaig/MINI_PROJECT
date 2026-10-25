@@ -11,6 +11,7 @@ import { useAuth } from '../hooks/useAuth'
 import { playClickSound, playSuccessSound } from '../utils/audioFeedback'
 import { useToast } from '../context/ToastContext'
 import { AnimatedWeatherIcon, AnimatedWeatherBoxCanvas } from './AnimatedWeatherBadge'
+import DivyangjanLifelineModal from './DivyangjanLifelineModal'
 
 interface NavbarProps {
   user: any
@@ -31,6 +32,7 @@ export default function Navbar({ user, onSignOut, weather }: NavbarProps) {
   const location = useLocation()
   const toast = useToast()
   const { currentRole } = useAuth()
+  const [lifelineOpen, setLifelineOpen] = useState(false)
   const [advisorOpen, setAdvisorOpen] = useState(false)
   const [advisorInput, setAdvisorInput] = useState('')
   const [advisorMessages, setAdvisorMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string }>>([
@@ -246,6 +248,40 @@ export default function Navbar({ user, onSignOut, weather }: NavbarProps) {
             )
           })}
         </nav>
+
+        {/* Divyangjan Inclusive Lifeline Trigger */}
+        <div style={{ padding: '0 12px 8px' }}>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              playClickSound()
+              setLifelineOpen(true)
+            }}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 14px',
+              borderRadius: 10,
+              border: '1px solid #10B981',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.15) 100%)',
+              color: '#34D399',
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 0 14px rgba(16, 185, 129, 0.2)',
+            }}
+            title="Inclusive Disaster Defense: Voice Guidance, Optical Strobe, LifeBeacon"
+          >
+            <span style={{ fontSize: 16 }}>♿</span>
+            <span>Divyangjan Lifeline</span>
+            <span style={{ marginLeft: 'auto', fontSize: 10, background: '#10B981', color: '#000', padding: '1px 6px', borderRadius: 4, fontWeight: 900 }}>
+              SOS/VOICE
+            </span>
+          </motion.button>
+        </div>
 
         {/* Response Advisor Trigger */}
         <div style={{ padding: '0 12px 12px' }}>
@@ -513,6 +549,12 @@ export default function Navbar({ user, onSignOut, weather }: NavbarProps) {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Divyangjan Inclusive Disaster Assistance Suite Modal */}
+      <DivyangjanLifelineModal
+        isOpen={lifelineOpen}
+        onClose={() => setLifelineOpen(false)}
+      />
     </>
   )
 }

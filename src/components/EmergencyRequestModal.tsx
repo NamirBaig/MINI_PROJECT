@@ -61,6 +61,9 @@ export default function EmergencyRequestModal({
   })
   const [requesterPhone, setRequesterPhone] = useState(user?.user_metadata?.phone || '')
   const [patientNotes, setPatientNotes] = useState('')
+  const [isDivyangjan, setIsDivyangjan] = useState(false)
+  const [vulnerabilityType, setVulnerabilityType] = useState('Wheelchair User (Non-Ambulatory)')
+  const [assistiveNeeds, setAssistiveNeeds] = useState<string[]>(['Hydraulic Ramp Boat', 'Stretcher Evacuation Team'])
   const [submitting, setSubmitting] = useState(false)
   const [gpsLoading, setGpsLoading] = useState(false)
   const [gpsResult, setGpsResult] = useState<LiveLocationResult | null>(null)
@@ -114,8 +117,11 @@ export default function EmergencyRequestModal({
         address: address.trim(),
         resourceType,
         quantity: Math.max(1, quantity),
-        urgency,
+        urgency: isDivyangjan ? 'CRITICAL' : urgency,
         patientNotes: patientNotes.trim(),
+        isDivyangjanPriority: isDivyangjan,
+        vulnerabilityType: isDivyangjan ? vulnerabilityType : undefined,
+        assistiveRequirements: isDivyangjan ? assistiveNeeds : undefined,
       })
 
       playSuccessSound()
@@ -510,6 +516,121 @@ export default function EmergencyRequestModal({
               <p style={{ margin: '4px 0 0', fontSize: 11.5, color: 'var(--tx-muted)' }}>
                 When authorities accept or deny your request, this email will receive the official bed reservation token, ambulance vehicle number, driver contact, and live ETA.
               </p>
+            </div>
+
+            {/* 4.5 Divyangjan / Vulnerable Citizen Priority Rescue Flag */}
+            <div
+              style={{
+                background: isDivyangjan ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                border: isDivyangjan ? '1px solid #EF4444' : '1px dashed rgba(255, 255, 255, 0.18)',
+                borderRadius: 14,
+                padding: '14px 16px',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 20 }}>♿</span>
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 800, color: isDivyangjan ? '#FCA5A5' : '#FFFFFF', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      Divyangjan / Vulnerable Citizen Priority Protocol
+                      {isDivyangjan && (
+                        <span style={{ fontSize: 10, background: '#EF4444', color: '#fff', padding: '2px 6px', borderRadius: 6, fontWeight: 900 }}>
+                          TOP TRIAGE QUEUE
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--tx-muted)' }}>
+                      For wheelchair users, bedridden, blind, deaf, or high-risk elderly needing hydraulic boats or oxygen.
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={isDivyangjan}
+                  onChange={(e) => {
+                    playClickSound()
+                    setIsDivyangjan(e.target.checked)
+                    if (e.target.checked) {
+                      setUrgency('CRITICAL')
+                    }
+                  }}
+                  style={{ width: 18, height: 18, accentColor: '#EF4444', cursor: 'pointer' }}
+                />
+              </label>
+
+              {isDivyangjan && (
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(239, 68, 68, 0.25)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: '#FCA5A5' }}>
+                      Primary Mobility or Sensory Classification:
+                    </label>
+                    <select
+                      value={vulnerabilityType}
+                      onChange={(e) => setVulnerabilityType(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        background: 'rgba(0, 0, 0, 0.5)',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        color: '#FFFFFF',
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                      }}
+                    >
+                      <option value="Wheelchair User (Non-Ambulatory)">Wheelchair User (Non-Ambulatory)</option>
+                      <option value="Bedridden / Critical Oxygen Dependent">Bedridden / Critical Oxygen Dependent</option>
+                      <option value="Blind / Visually Impaired (Needs Guiding Escort)">Blind / Visually Impaired (Needs Guiding Escort)</option>
+                      <option value="Deaf / Non-Verbal (Visual/Tactile Signaling)">Deaf / Non-Verbal (Visual/Tactile Signaling)</option>
+                      <option value="Senior Citizen 75+ (Mobility Impaired)">Senior Citizen 75+ (Mobility Impaired)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: '#FCA5A5' }}>
+                      Specialized Rescue Equipment Required (SDRF / BBMP):
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {[
+                        'Hydraulic Ramp Boat',
+                        'Stretcher Evacuation Team',
+                        'Portable Medical Oxygen (10L)',
+                        'Accessible Low-Floor Van',
+                        'Sign Language Specialist',
+                      ].map((equip) => {
+                        const isIncluded = assistiveNeeds.includes(equip)
+                        return (
+                          <button
+                            key={equip}
+                            type="button"
+                            onClick={() => {
+                              playClickSound()
+                              setAssistiveNeeds((prev) =>
+                                isIncluded ? prev.filter((x) => x !== equip) : [...prev, equip]
+                              )
+                            }}
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: 6,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              background: isIncluded ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+                              border: isIncluded ? '1px solid #EF4444' : '1px solid rgba(255, 255, 255, 0.12)',
+                              color: isIncluded ? '#FFFFFF' : 'rgba(255, 255, 255, 0.7)',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            {isIncluded ? '✓ ' : '+ '}
+                            {equip}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 5. Medical Emergency & Patient Condition Notes */}

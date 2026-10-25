@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth'
 import { playClickSound } from '../utils/audioFeedback'
 import type { WeatherData } from '../hooks/useWeather'
 import { AnimatedWeatherIcon } from './AnimatedWeatherBadge'
+import DivyangjanLifelineModal from './DivyangjanLifelineModal'
 
 interface ExecutiveTopBarProps {
   user: any
@@ -19,6 +20,19 @@ export default function ExecutiveTopBar({ user, onSignOut, weather }: ExecutiveT
   const { currentRole } = useAuth()
   const isAuthority = currentRole !== 'citizen'
   const [timeStr, setTimeStr] = useState<string>('')
+  const [lifelineOpen, setLifelineOpen] = useState(false)
+
+  // Keyboard shortcut (Alt+A or Shift+A) for immediate inclusive access
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.altKey || e.shiftKey) && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault()
+        setLifelineOpen(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Resident'
   const roleTitle = user?.user_metadata?.role || 'Verified Resident'
@@ -129,6 +143,34 @@ export default function ExecutiveTopBar({ user, onSignOut, weather }: ExecutiveT
           </span>
         </div>
 
+        {/* Divyangjan Inclusive Lifeline Trigger */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            playClickSound()
+            setLifelineOpen(true)
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.32) 100%)',
+            border: '1px solid #10B981',
+            borderRadius: 6,
+            padding: '4px 10px',
+            color: '#34D399',
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 800,
+            boxShadow: '0 0 12px rgba(16, 185, 129, 0.25)',
+          }}
+          title="Open Inclusive Divyangjan Assistive Suite (Shortcut: Alt+A)"
+        >
+          <span style={{ fontSize: 13 }}>♿</span>
+          <span>DIVYANGJAN LIFELINE</span>
+        </motion.button>
+
         {/* Sign Out Button – Instant smooth transition with zero refresh */}
         <motion.button
           whileHover={{ scale: 1.05, background: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.5)' }}
@@ -156,6 +198,12 @@ export default function ExecutiveTopBar({ user, onSignOut, weather }: ExecutiveT
           <span>Exit</span>
         </motion.button>
       </div>
+
+      {/* Divyangjan Inclusive Disaster Assistance Suite Modal */}
+      <DivyangjanLifelineModal
+        isOpen={lifelineOpen}
+        onClose={() => setLifelineOpen(false)}
+      />
     </header>
   )
 }

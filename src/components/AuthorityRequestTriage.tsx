@@ -172,9 +172,19 @@ export default function AuthorityRequestTriage() {
       req.requesterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       req.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
       req.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.resourceType.toLowerCase().includes(searchQuery.toLowerCase())
+      req.resourceType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (req.vulnerabilityType && req.vulnerabilityType.toLowerCase().includes(searchQuery.toLowerCase()))
 
     return matchesZone && matchesStatus && matchesUrgency && matchesSearch
+  }).sort((a, b) => {
+    // 1. Divyangjan priority calls at the absolute top of the queue
+    if (a.isDivyangjanPriority && !b.isDivyangjanPriority) return -1
+    if (!a.isDivyangjanPriority && b.isDivyangjanPriority) return 1
+    // 2. Pending calls before approved/denied
+    if (a.status === 'PENDING' && b.status !== 'PENDING') return -1
+    if (a.status !== 'PENDING' && b.status === 'PENDING') return 1
+    // 3. Newest first
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   })
 
   // Damage Reports Filtering
@@ -756,14 +766,16 @@ export default function AuthorityRequestTriage() {
                   <div
                     key={req.id}
                     style={{
-                      background: 'rgba(255, 255, 255, 0.03)',
-                      border: `1px solid ${
-                        isPending
-                          ? 'rgba(245, 158, 11, 0.35)'
-                          : isApproved
-                          ? 'rgba(16, 185, 129, 0.35)'
-                          : 'rgba(239, 68, 68, 0.35)'
-                      }`,
+                      background: req.isDivyangjanPriority ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                      border: req.isDivyangjanPriority
+                        ? '1.5px solid #EF4444'
+                        : `1px solid ${
+                            isPending
+                              ? 'rgba(245, 158, 11, 0.35)'
+                              : isApproved
+                              ? 'rgba(16, 185, 129, 0.35)'
+                              : 'rgba(239, 68, 68, 0.35)'
+                          }`,
                       borderRadius: 14,
                       padding: '16px 18px',
                       display: 'flex',
@@ -771,9 +783,35 @@ export default function AuthorityRequestTriage() {
                       alignItems: 'center',
                       flexWrap: 'wrap',
                       gap: 14,
+                      boxShadow: req.isDivyangjanPriority ? '0 0 20px rgba(239, 68, 68, 0.2)' : 'none',
                     }}
                   >
                     <div style={{ flex: '1 1 340px' }}>
+                      {req.isDivyangjanPriority && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.25) 0%, rgba(185, 28, 28, 0.15) 100%)',
+                            border: '1px solid #EF4444',
+                            borderRadius: 8,
+                            padding: '6px 10px',
+                            marginBottom: 10,
+                            fontSize: 11.5,
+                            fontWeight: 800,
+                            color: '#FCA5A5',
+                          }}
+                        >
+                          <span style={{ fontSize: 16 }}>♿</span>
+                          <span>DIVYANGJAN CRITICAL PRIORITY: {req.vulnerabilityType || 'Vulnerable Citizen (SDRF Hydraulic Boat / Oxygen Needed)'}</span>
+                          {req.assistiveRequirements && req.assistiveRequirements.length > 0 && (
+                            <span style={{ color: '#FEE2E2', fontSize: 10.5, fontWeight: 600 }}>
+                              • Needs: {req.assistiveRequirements.join(', ')}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <span style={{ fontSize: 13, fontWeight: 900, color: '#FFFFFF' }}>{req.resourceType}</span>
                         <span
@@ -1462,6 +1500,26 @@ export default function AuthorityRequestTriage() {
               </div>
 
               <form onSubmit={handleConfirmApproval} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {approveModalItem.isDivyangjanPriority && (
+                  <div
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.2)',
+                      border: '1px solid #EF4444',
+                      borderRadius: 8,
+                      padding: '8px 12px',
+                      fontSize: 12,
+                      color: '#FCA5A5',
+                      fontWeight: 700,
+                    }}
+                  >
+                    ♿ Divyangjan Priority Protocol: {approveModalItem.vulnerabilityType || 'Vulnerable Citizen'}
+                    {approveModalItem.assistiveRequirements && approveModalItem.assistiveRequirements.length > 0 && (
+                      <div style={{ fontSize: 11, fontWeight: 500, color: '#FEE2E2', marginTop: 2 }}>
+                        Required: {approveModalItem.assistiveRequirements.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div>
                   <label style={{ display: 'block', fontSize: 11.5, color: 'var(--tx-muted)', marginBottom: 4 }}>
                     Allocated Hospital / Relief Facility

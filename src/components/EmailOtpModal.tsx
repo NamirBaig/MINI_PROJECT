@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ShieldCheck,
@@ -188,15 +189,16 @@ export default function EmailOtpModal({
     }
   }
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <div
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 99999,
-          background: 'rgba(3, 8, 6, 0.85)',
-          backdropFilter: 'blur(12px)',
+          zIndex: 2147483647,
+          background: 'rgba(3, 8, 6, 0.88)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -509,6 +511,7 @@ export default function EmailOtpModal({
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
